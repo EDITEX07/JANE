@@ -182,8 +182,8 @@ st.markdown(
     background-color: #210d16 !important;
     border: 1px solid #ff465c !important;
     border-radius: 22px !important;
-    padding: 56px 13px 10px !important;
-    min-height: 132px !important;
+    padding: 42px 13px 8px !important;
+    min-height: 112px !important;
     opacity: 1 !important;
     box-shadow: 0 5px 24px rgba(0, 0, 0, .45) !important;
 }
@@ -193,7 +193,7 @@ div[class*="st-key-open_intelligence_dialog"] {
     position: fixed !important;
     z-index: 10002 !important;
     left: max(18px, calc((100vw - 900px) / 2 + 16px)) !important;
-    bottom: 112px !important;
+    bottom: 96px !important;
     width: auto !important;
     max-width: 190px !important;
     margin: 0 !important;
@@ -320,13 +320,13 @@ p, label, li {
 
     [data-testid="stChatInput"] {
         border-radius: 20px !important;
-        padding: 56px 12px 10px !important;
-        min-height: 132px !important;
+        padding: 42px 12px 8px !important;
+        min-height: 112px !important;
     }
 
     div[class*="st-key-open_intelligence_dialog"] {
         left: 24px !important;
-        bottom: 108px !important;
+        bottom: 84px !important;
         max-width: 180px !important;
     }
 
@@ -668,4 +668,3 @@ st.markdown(
     "Session data is temporary · Verify important decisions</div>",
     unsafe_allow_html=True,
 )
-
