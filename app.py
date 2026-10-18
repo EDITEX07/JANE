@@ -82,15 +82,17 @@ def intelligence_dialog():
     st.caption("Your choice stays active until you change it.")
 
 
-def render_message_content(message):
-    """Collapse long user prompts and let the user expand them on demand."""
+def render_message_content(message, key="message"):
+    """Render long user prompts as a seven-line preview with an expand option."""
     content = message["content"]
-    if message["role"] == "user" and len(content) > 320:
-        preview = content[:320].rstrip()
-        if len(content) > 320:
-            preview += "…"
-        st.markdown(preview)
-        with st.expander("Read more"):
+    if message["role"] == "user":
+        lines = content.splitlines() or [content]
+        if len(lines) > 7:
+            preview = "\n".join(lines[:7]).rstrip() + "…"
+            st.markdown(preview)
+            with st.expander("See more"):
+                st.markdown(content)
+        else:
             st.markdown(content)
     else:
         st.markdown(content)
@@ -230,9 +232,36 @@ st.markdown(
 [data-testid="stChatMessage"] {
     background: rgba(15, 12, 20, .94);
     border: 1px solid var(--jane-border);
-    border-radius: 16px;
+    border-radius: 18px;
     padding: 13px;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
+}
+
+/* User messages: red rounded chat bubbles. */
+[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) {
+    background: linear-gradient(135deg, #a91430 0%, #741126 100%);
+    border: 1px solid #ff465c;
+    border-radius: 20px 20px 5px 20px;
+    margin-left: auto;
+    max-width: 88%;
+    box-shadow: 0 4px 18px rgba(255, 35, 70, .12);
+}
+
+/* J.A.N.E. responses: charcoal-grey rounded bubbles. */
+[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {
+    background: linear-gradient(145deg, #29292f 0%, #1d1d23 100%);
+    border: 1px solid #44444d;
+    border-radius: 20px 20px 20px 5px;
+    margin-right: auto;
+    max-width: 96%;
+}
+
+/* Make J.A.N.E.'s avatar a text J using the Zeus Borne font. */
+[data-testid="stChatMessage"] [data-testid="chatAvatarIcon-assistant"] {
+    font-family: "Zeus Borne", "Arial Black", sans-serif !important;
+    color: #ff465c !important;
+    text-shadow: 0 0 7px rgba(255, 36, 61, .75);
+    font-weight: 900 !important;
 }
 
 /* Native Streamlit chat input stays anchored at the bottom.
@@ -394,7 +423,15 @@ p, label, li {
 
     [data-testid="stChatMessage"] {
         padding: 10px;
-        border-radius: 13px;
+        border-radius: 15px;
+    }
+
+    [data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) {
+        max-width: 94%;
+    }
+
+    [data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {
+        max-width: 100%;
     }
 
     [data-testid="stChatInput"] {
@@ -594,7 +631,7 @@ if not chat["messages"]:
                 st.rerun()
 
 for message_index, message in enumerate(chat["messages"]):
-    with st.chat_message(message["role"]):
+    with st.chat_message(message["role"], avatar="J" if message["role"] == "assistant" else None):
         render_message_content(message)
         if message["role"] == "assistant":
             render_copy_answer(message["content"], f"history-{message_index}")
@@ -749,7 +786,7 @@ if prompt:
         }
     )
 
-    with st.chat_message("assistant"):
+    with st.chat_message("assistant", avatar="J"):
         st.markdown(answer)
         render_copy_answer(answer, f"latest-{len(chat['messages'])}")
 
