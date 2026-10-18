@@ -83,8 +83,12 @@ st.markdown("""
 [data-testid="stFormSubmitButton"] button p{font-size:26px!important;line-height:1!important;margin:0!important;color:#fff!important}
 [data-testid="stTextArea"] textarea{background:transparent!important;opacity:1!important;color:#ffffff!important;border:0!important;border-radius:14px!important;font-size:16px!important;line-height:1.5!important;box-shadow:none!important;padding:10px 4px!important}
 [data-testid="stTextArea"] textarea:focus{border:0!important;box-shadow:none!important}
-[data-testid="stVerticalBlockBorderWrapper"]:has([data-testid="stForm"]){background:linear-gradient(125deg,#a10f2b 0%,#5a1023 32%,#1b0e16 67%,#08080b 100%)!important;opacity:1!important;border:1px solid #ff465c!important;border-radius:22px!important;padding:10px 13px!important;box-shadow:0 5px 24px rgba(0,0,0,.38)}
-[data-testid="stVerticalBlockBorderWrapper"]:has([data-testid="stForm"]):focus-within{border-color:#ff7182!important;box-shadow:0 0 0 1px #ff465c,0 5px 24px rgba(0,0,0,.38)!important}
+/* Gradient on the full bordered composer container where supported. */
+div[data-testid="stVerticalBlockBorderWrapper"]:has(div[data-testid="stForm"]){background:linear-gradient(125deg,#a10f2b 0%,#5a1023 32%,#1b0e16 67%,#08080b 100%)!important;background-color:#210d16!important;opacity:1!important;border:1px solid #ff465c!important;border-radius:22px!important;padding:10px 13px!important;box-shadow:0 5px 24px rgba(0,0,0,.38)!important}
+div[data-testid="stVerticalBlockBorderWrapper"]:has(div[data-testid="stForm"]):focus-within{border-color:#ff7182!important;box-shadow:0 0 0 1px #ff465c,0 5px 24px rgba(0,0,0,.38)!important}
+/* Fallback: paint the actual form itself too, in case Streamlit changes its wrapper DOM. */
+div[data-testid="stForm"]{background:linear-gradient(125deg,#a10f2b 0%,#5a1023 32%,#1b0e16 67%,#08080b 100%)!important;background-color:#210d16!important;border:1px solid rgba(255,70,92,.55)!important;border-radius:18px!important;padding:8px!important;opacity:1!important}
+div[data-testid="stForm"] [data-testid="stVerticalBlock"]{background:transparent!important}
 .stButton>button{min-height:42px;border-radius:12px;border:1px solid var(--jane-border);background:#211923;color:#f4f4f5;transition:border-color .2s ease}
 .stButton>button:hover{border-color:var(--jane-red);color:#fff}
 [data-testid="stFileUploader"]{background:rgba(21,19,26,.85);border-radius:14px}
