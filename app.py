@@ -14,60 +14,171 @@ st.set_page_config(
 )
 
 # ---------- DESIGN ----------
+
 st.markdown("""
 <style>
+/* JANE: mobile-first dark interface */
+:root {
+    --jane-red: #ff465c;
+    --jane-bg: #0b0b10;
+    --jane-panel: #15131a;
+    --jane-border: #38202b;
+    --jane-text: #f4f4f5;
+    --jane-muted: #a5a1ad;
+}
+
 .stApp {
     background:
         repeating-linear-gradient(
             45deg,
-            #171014,
-            #171014 5px,
-            #211217 5px,
-            #211217 10px
+            #120e12,
+            #120e12 6px,
+            #1c1017 6px,
+            #1c1017 12px
         );
-    color: #f4f4f5;
+    color: var(--jane-text);
 }
+
+/* Keep Streamlit's top bar unobtrusive */
 [data-testid="stHeader"] {
-    background: transparent;
+    background: rgba(11, 11, 16, 0.92);
 }
+
+/* Navigation */
 [data-testid="stSidebar"] {
-    background: #0b0b10;
-    border-right: 1px solid #38212b;
+    background: var(--jane-bg);
+    border-right: 1px solid var(--jane-border);
 }
+
+[data-testid="stSidebar"] > div:first-child {
+    padding-top: 1rem;
+}
+
+/* Branding */
 .jane-header {
     background: #050507;
-    border: 1px solid #29202a;
+    border: 1px solid #33202a;
     border-radius: 18px;
-    padding: 12px 18px;
+    padding: 18px 12px;
     text-align: center;
-    margin-bottom: 22px;
+    margin: 0 0 18px 0;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
 }
+
 .jane-title {
-    color: #ff465c;
-    font-size: 30px;
+    color: var(--jane-red);
+    font-size: clamp(24px, 5vw, 34px);
     font-weight: 900;
     letter-spacing: 4px;
+    line-height: 1.2;
 }
+
 .jane-subtitle {
-    color: #a8a8b3;
-    font-size: 13px;
+    color: var(--jane-muted);
+    font-size: 12px;
+    margin-top: 6px;
 }
+
+/* Buttons */
+.stButton > button {
+    min-height: 42px;
+    border-radius: 12px;
+    border: 1px solid var(--jane-border);
+    background: #211923;
+    color: var(--jane-text);
+    transition: border-color 0.2s ease;
+}
+
+.stButton > button:hover {
+    border-color: var(--jane-red);
+    color: #ffffff;
+}
+
+/* Conversation panels */
 [data-testid="stChatMessage"] {
     background: rgba(15, 12, 20, 0.94);
-    border: 1px solid #35232d;
-    border-radius: 15px;
-    padding: 12px;
+    border: 1px solid var(--jane-border);
+    border-radius: 16px;
+    padding: 14px;
+    margin-bottom: 10px;
 }
+
+/* Composer */
 [data-testid="stChatInput"] {
-    border: 1px solid #a91b46;
-    border-radius: 15px;
+    border: 1px solid #853047;
+    border-radius: 16px;
+    background: #17131d;
 }
-.stButton > button {
-    border-radius: 10px;
-    border: 1px solid #482532;
+
+[data-testid="stChatInput"]:focus-within {
+    border-color: var(--jane-red);
+    box-shadow: 0 0 0 1px var(--jane-red);
 }
+
+/* Upload area */
+[data-testid="stFileUploader"] {
+    background: rgba(21, 19, 26, 0.85);
+    border-radius: 14px;
+}
+
+/* Typography */
 h1, h2, h3 {
     color: #ff5267;
+}
+
+p, label {
+    overflow-wrap: anywhere;
+}
+
+/* Smaller screens */
+@media (max-width: 768px) {
+    .block-container {
+        padding: 1rem 0.8rem 5.5rem 0.8rem;
+        max-width: 100%;
+    }
+
+    .jane-header {
+        padding: 15px 8px;
+        border-radius: 15px;
+        margin-bottom: 14px;
+    }
+
+    .jane-title {
+        font-size: 27px;
+        letter-spacing: 3px;
+    }
+
+    .jane-subtitle {
+        font-size: 11px;
+    }
+
+    [data-testid="stChatMessage"] {
+        padding: 10px;
+        border-radius: 13px;
+    }
+
+    [data-testid="stChatInput"] {
+        margin-bottom: 0.5rem;
+    }
+
+    .stButton > button {
+        min-height: 44px;
+        font-size: 14px;
+    }
+
+    [data-testid="stSidebar"] {
+        min-width: 0;
+    }
+}
+
+/* Respect reduced-motion preferences */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        transition: none !important;
+        animation: none !important;
+    }
 }
 </style>
 """, unsafe_allow_html=True)
