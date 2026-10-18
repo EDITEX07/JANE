@@ -1,4 +1,5 @@
 import io
+import base64
 import uuid
 from pathlib import Path
 from datetime import datetime
@@ -494,20 +495,20 @@ with st.sidebar:
 
 
 # -------------------- MAIN WORKSPACE --------------------
-st.markdown('<div class="jane-header">', unsafe_allow_html=True)
-st.markdown("""<style>
-/* Center the complete logo across the full workspace width. Do not alter the composer. */
-div[data-testid="stImage"] { width: 100%; display: flex; justify-content: center; }
-div[data-testid="stImage"] img { object-fit: contain; max-width: 100%; }
-</style>""", unsafe_allow_html=True)
 logo_path = Path(__file__).with_name("jane_logo_transparent_full.png")
-logo_left, logo_center, logo_right = st.columns([1, 1, 1], gap="small")
-with logo_center:
-    if logo_path.exists():
-        st.image(str(logo_path), width=160)
-    else:
-        st.markdown('<div class="jane-title">J.A.N.E.</div>', unsafe_allow_html=True)
-st.markdown('</div>', unsafe_allow_html=True)
+if logo_path.exists():
+    logo_data = base64.b64encode(logo_path.read_bytes()).decode("ascii")
+    logo_html = (
+        '<div style="width:100%;display:flex;justify-content:center;align-items:center;'
+        'text-align:center;margin:0 auto;padding:0;box-sizing:border-box;">'
+        f'<img src="data:image/png;base64,{logo_data}" alt="J.A.N.E. logo" '
+        'style="display:block;width:160px;max-width:100%;height:auto;object-fit:contain;'
+        'object-position:center;margin:0 auto;flex:0 0 auto;" />'
+        '</div>'
+    )
+    st.markdown(logo_html, unsafe_allow_html=True)
+else:
+    st.markdown('<div class="jane-title" style="width:100%;text-align:center;">J.A.N.E.</div>', unsafe_allow_html=True)
 
 chat = active_chat()
 meta_left, meta_right = st.columns([4, 1])
