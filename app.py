@@ -83,8 +83,10 @@ st.markdown("""
 [data-testid="stFormSubmitButton"] button p{font-size:26px!important;line-height:1!important;margin:0!important;color:#fff!important}
 [data-testid="stTextArea"] textarea{background:transparent!important;opacity:1!important;color:#ffffff!important;border:0!important;border-radius:14px!important;font-size:16px!important;line-height:1.5!important;box-shadow:none!important;padding:10px 4px!important}
 [data-testid="stTextArea"] textarea:focus{border:0!important;box-shadow:none!important}
-/* Gradient on the full bordered composer container where supported. */
-div[data-testid="stVerticalBlockBorderWrapper"]:has(div[data-testid="stForm"]){background:linear-gradient(125deg,#a10f2b 0%,#5a1023 32%,#1b0e16 67%,#08080b 100%)!important;background-color:#210d16!important;opacity:1!important;border:1px solid #ff465c!important;border-radius:22px!important;padding:10px 13px!important;box-shadow:0 5px 24px rgba(0,0,0,.38)!important}
+/* Keep the full composer fixed at the bottom of the viewport. */
+div[data-testid="stVerticalBlockBorderWrapper"]:has(div[data-testid="stForm"]){position:fixed!important;left:50%!important;bottom:16px!important;transform:translateX(-50%)!important;width:min(900px,calc(100vw - 300px))!important;z-index:9999!important;box-sizing:border-box!important;margin:0!important;background:linear-gradient(125deg,#a10f2b 0%,#5a1023 32%,#1b0e16 67%,#08080b 100%)!important;background-color:#210d16!important;opacity:1!important;border:1px solid #ff465c!important;border-radius:22px!important;padding:10px 13px!important;box-shadow:0 5px 24px rgba(0,0,0,.55)!important}
+/* Reserve space so the last chat messages can scroll above the fixed composer. */
+.block-container{padding-bottom:190px!important}
 div[data-testid="stVerticalBlockBorderWrapper"]:has(div[data-testid="stForm"]):focus-within{border-color:#ff7182!important;box-shadow:0 0 0 1px #ff465c,0 5px 24px rgba(0,0,0,.38)!important}
 /* Fallback: paint the actual form itself too, in case Streamlit changes its wrapper DOM. */
 div[data-testid="stForm"]{background:linear-gradient(125deg,#a10f2b 0%,#5a1023 32%,#1b0e16 67%,#08080b 100%)!important;background-color:#210d16!important;border:1px solid rgba(255,70,92,.55)!important;border-radius:18px!important;padding:8px!important;opacity:1!important}
@@ -94,7 +96,7 @@ div[data-testid="stForm"] [data-testid="stVerticalBlock"]{background:transparent
 [data-testid="stFileUploader"]{background:rgba(21,19,26,.85);border-radius:14px}
 h1,h2,h3{color:#ff5267}p,label,li{overflow-wrap:anywhere}
 .jane-footer{color:#898491;font-size:11px;text-align:center;padding:12px 4px 5px}
-@media(max-width:768px){.block-container{padding:.8rem .75rem 2rem;max-width:100%}.jane-header{padding:13px 8px;border-radius:15px;margin-bottom:12px}.jane-title{font-size:27px;letter-spacing:3px}.jane-subtitle{font-size:11px}.welcome-wrap{padding-top:28px}[data-testid="stChatMessage"]{padding:10px;border-radius:13px}[data-testid="stChatInput"]{min-height:118px;border-radius:20px;padding:10px 12px}[data-testid="stChatInput"] textarea{min-height:76px!important;font-size:16px!important}.stButton>button{min-height:44px;font-size:14px}}
+@media(max-width:768px){.block-container{padding:.8rem .75rem 210px!important;max-width:100%}.jane-header{padding:13px 8px;border-radius:15px;margin-bottom:12px}.jane-title{font-size:27px;letter-spacing:3px}.jane-subtitle{font-size:11px}.welcome-wrap{padding-top:28px}[data-testid="stChatMessage"]{padding:10px;border-radius:13px}div[data-testid="stVerticalBlockBorderWrapper"]:has(div[data-testid="stForm"]){width:calc(100vw - 16px)!important;bottom:8px!important;padding:8px!important;border-radius:18px!important}[data-testid="stChatInput"]{min-height:118px;border-radius:20px;padding:10px 12px}[data-testid="stChatInput"] textarea{min-height:76px!important;font-size:16px!important}.stButton>button{min-height:44px;font-size:14px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
 </style>
 """, unsafe_allow_html=True)
