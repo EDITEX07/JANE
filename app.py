@@ -81,10 +81,10 @@ st.markdown("""
 [data-testid="stFormSubmitButton"] button{width:40px!important;min-width:40px!important;height:40px!important;min-height:40px!important;padding:0!important;border-radius:50%!important;border:0!important;background:#ff465c!important;color:#ffffff!important;font-size:26px!important;font-weight:700!important;line-height:1!important;box-shadow:none!important;display:flex!important;align-items:center!important;justify-content:center!important}
 [data-testid="stFormSubmitButton"] button:hover{background:#e9344b!important;color:#fff!important;border:0!important}
 [data-testid="stFormSubmitButton"] button p{font-size:26px!important;line-height:1!important;margin:0!important;color:#fff!important}
-[data-testid="stTextArea"] textarea{background:#17131d!important;opacity:1!important;color:#f4f4f5!important;border:0!important;border-radius:14px!important;font-size:16px!important;line-height:1.5!important;box-shadow:none!important;padding:10px 4px!important}
+[data-testid="stTextArea"] textarea{background:transparent!important;opacity:1!important;color:#ffffff!important;border:0!important;border-radius:14px!important;font-size:16px!important;line-height:1.5!important;box-shadow:none!important;padding:10px 4px!important}
 [data-testid="stTextArea"] textarea:focus{border:0!important;box-shadow:none!important}
-[data-testid="stVerticalBlockBorderWrapper"]:has([data-testid="stForm"]){background:#17131d!important;opacity:1!important;border:1px solid #853047!important;border-radius:22px!important;padding:10px 13px!important;box-shadow:0 5px 24px rgba(0,0,0,.24)}
-[data-testid="stVerticalBlockBorderWrapper"]:has([data-testid="stForm"]):focus-within{border-color:#ff465c!important}
+[data-testid="stVerticalBlockBorderWrapper"]:has([data-testid="stForm"]){background:linear-gradient(125deg,#a10f2b 0%,#5a1023 32%,#1b0e16 67%,#08080b 100%)!important;opacity:1!important;border:1px solid #ff465c!important;border-radius:22px!important;padding:10px 13px!important;box-shadow:0 5px 24px rgba(0,0,0,.38)}
+[data-testid="stVerticalBlockBorderWrapper"]:has([data-testid="stForm"]):focus-within{border-color:#ff7182!important;box-shadow:0 0 0 1px #ff465c,0 5px 24px rgba(0,0,0,.38)!important}
 .stButton>button{min-height:42px;border-radius:12px;border:1px solid var(--jane-border);background:#211923;color:#f4f4f5;transition:border-color .2s ease}
 .stButton>button:hover{border-color:var(--jane-red);color:#fff}
 [data-testid="stFileUploader"]{background:rgba(21,19,26,.85);border-radius:14px}
