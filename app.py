@@ -495,11 +495,16 @@ with st.sidebar:
 
 # -------------------- MAIN WORKSPACE --------------------
 st.markdown('<div class="jane-header">', unsafe_allow_html=True)
+st.markdown("""<style>
+/* Center the logo only; do not alter the messenger/composer dimensions. */
+div[data-testid="stImage"] { display: flex; justify-content: center; }
+div[data-testid="stImage"] img { object-fit: contain; }
+</style>""", unsafe_allow_html=True)
 logo_path = Path(__file__).with_name("jane_logo.png")
 logo_left, logo_center, logo_right = st.columns([1, 2, 1])
 with logo_center:
     if logo_path.exists():
-        st.image(str(logo_path), width=180)
+        st.image(str(logo_path.with_name("jane_logo_transparent.png")), width=160)
     else:
         st.markdown('<div class="jane-title">J.A.N.E.</div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
