@@ -168,8 +168,10 @@ st.markdown(
     margin-bottom: 10px;
 }
 
-/* Native Streamlit chat input stays anchored at the bottom of the page. */
+/* Native Streamlit chat input stays anchored at the bottom of the page.
+   Extra top padding makes room for the overlaid intelligence selector. */
 [data-testid="stChatInput"] {
+    position: relative !important;
     background: linear-gradient(
         125deg,
         #a10f2b 0%,
@@ -180,9 +182,39 @@ st.markdown(
     background-color: #210d16 !important;
     border: 1px solid #ff465c !important;
     border-radius: 22px !important;
-    padding: 10px 13px !important;
+    padding: 38px 13px 10px !important;
+    min-height: 112px !important;
     opacity: 1 !important;
     box-shadow: 0 5px 24px rgba(0, 0, 0, .45) !important;
+}
+
+/* Place the real, clickable mode-selector button visually inside the input. */
+div[class*="st-key-open_intelligence_dialog"] {
+    position: fixed !important;
+    z-index: 10002 !important;
+    left: max(18px, calc((100vw - 900px) / 2 + 16px)) !important;
+    bottom: 76px !important;
+    width: auto !important;
+    max-width: 190px !important;
+    margin: 0 !important;
+}
+
+div[class*="st-key-open_intelligence_dialog"] button {
+    min-height: 28px !important;
+    height: 28px !important;
+    width: auto !important;
+    padding: 2px 10px !important;
+    border-radius: 999px !important;
+    background: rgba(12, 8, 13, .92) !important;
+    border: 1px solid rgba(255, 150, 165, .55) !important;
+    color: #ffffff !important;
+    font-size: 12px !important;
+    white-space: nowrap !important;
+}
+
+div[class*="st-key-open_intelligence_dialog"] button:hover {
+    background: #35121f !important;
+    border-color: #ff7182 !important;
 }
 
 [data-testid="stChatInput"]:focus-within {
@@ -195,6 +227,7 @@ st.markdown(
     background: transparent !important;
     font-size: 16px !important;
     line-height: 1.5 !important;
+    min-height: 42px !important;
     opacity: 1 !important;
 }
 
@@ -287,7 +320,14 @@ p, label, li {
 
     [data-testid="stChatInput"] {
         border-radius: 20px !important;
-        padding: 10px 12px !important;
+        padding: 38px 12px 10px !important;
+        min-height: 112px !important;
+    }
+
+    div[class*="st-key-open_intelligence_dialog"] {
+        left: 24px !important;
+        bottom: 76px !important;
+        max-width: 180px !important;
     }
 
     [data-testid="stChatInput"] textarea {
@@ -479,19 +519,14 @@ if st.session_state.uploaded_files:
         + ", ".join(st.session_state.uploaded_files.keys())
     )
 
-mode_col, hint_col = st.columns([2, 5])
-
-with mode_col:
-    if st.button(
-        f"◉ {st.session_state.intelligence_mode} ▾",
-        key="open_intelligence_dialog",
-        use_container_width=True,
-        help="Choose how J.A.N.E. responds",
-    ):
-        intelligence_dialog()
-
-with hint_col:
-    st.caption("Choose how J.A.N.E. responds")
+# This real Streamlit button is visually positioned inside the native composer
+# using CSS above. It remains clickable and opens the same mode-selection dialog.
+if st.button(
+    f"◉ {st.session_state.intelligence_mode} ▾",
+    key="open_intelligence_dialog",
+    help="Choose how J.A.N.E. responds",
+):
+    intelligence_dialog()
 
 # Streamlit's native chat input is anchored to the bottom of the page.
 submitted_prompt = st.chat_input(
