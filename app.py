@@ -211,7 +211,7 @@ div[class*="st-key-open_intelligence_dialog"] {
     position: fixed !important;
     z-index: 10002 !important;
     left: max(18px, calc((100vw - 900px) / 2 + 16px)) !important;
-    bottom: 114px !important;
+    bottom: 154px !important;
     width: auto !important;
     max-width: 190px !important;
     margin: 0 !important;
@@ -352,7 +352,7 @@ p, label, li {
 
     div[class*="st-key-open_intelligence_dialog"] {
         left: 24px !important;
-        bottom: 114px !important;
+        bottom: 154px !important;
         max-width: 180px !important;
     }
 
