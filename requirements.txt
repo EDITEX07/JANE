@@ -1,5 +1,5 @@
 
 streamlit
-google-genai
 pandas
-openpyxl
+google-genai
+websockets>=13.0,<15.0
