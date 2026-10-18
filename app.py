@@ -6,6 +6,7 @@ from datetime import datetime
 
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 from google import genai
 
 st.set_page_config(
@@ -93,6 +94,40 @@ def render_message_content(message):
             st.markdown(content)
     else:
         st.markdown(content)
+
+
+def render_copy_answer(content, key):
+    """Render a compact copy button for an assistant response."""
+    import json
+    payload = json.dumps(content, ensure_ascii=False).replace("</", "<\/")
+    components.html(
+        f"""<div style="background:transparent;padding:2px 0 6px;">
+        <button id="copy-{key}" style="background:#171217;color:#e9e5eb;border:1px solid #49303b;"
+          border-radius:8px;padding:6px 11px;font-size:12px;cursor:pointer;>
+          ⧉ Copy answer
+        </button><span id="status-{key}" style="margin-left:9px;color:#aaa5b2;font:12px Arial,sans-serif;"></span>
+        </div>
+        <script>
+        const answer = {payload};
+        const button = document.getElementById("copy-{key}");
+        const status = document.getElementById("status-{key}");
+        button.addEventListener("click", async () => {{
+          try {{
+            await navigator.clipboard.writeText(answer);
+            status.textContent = "Copied!";
+          }} catch (err) {{
+            const area = document.createElement("textarea");
+            area.value = answer; document.body.appendChild(area);
+            area.select();
+            try {{ document.execCommand("copy"); status.textContent = "Copied!"; }}
+            catch (e) {{ status.textContent = "Copy unavailable in this browser"; }}
+            area.remove();
+          }}
+        }});
+        </script>""",
+        height=42,
+        scrolling=False,
+    )
 
 
 # -------------------- STYLING --------------------
@@ -558,9 +593,11 @@ if not chat["messages"]:
                 st.session_state.pending_prompt = suggestion
                 st.rerun()
 
-for message in chat["messages"]:
+for message_index, message in enumerate(chat["messages"]):
     with st.chat_message(message["role"]):
         render_message_content(message)
+        if message["role"] == "assistant":
+            render_copy_answer(message["content"], f"history-{message_index}")
         if message.get("attachments"):
             st.caption("📎 " + ", ".join(message["attachments"]))
 
@@ -714,6 +751,7 @@ if prompt:
 
     with st.chat_message("assistant"):
         st.markdown(answer)
+        render_copy_answer(answer, f"latest-{len(chat['messages'])}")
 
 st.markdown(
     "<div class='jane-footer'>J.A.N.E. 0.3 · Gemini API · "
