@@ -499,7 +499,7 @@ logo_path = Path(__file__).with_name("jane_logo.png")
 logo_left, logo_center, logo_right = st.columns([1, 2, 1])
 with logo_center:
     if logo_path.exists():
-        st.image(str(logo_path), width=420)
+        st.image(str(logo_path), width=180)
     else:
         st.markdown('<div class="jane-title">J.A.N.E.</div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
