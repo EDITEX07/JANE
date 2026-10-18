@@ -79,6 +79,20 @@ def intelligence_dialog():
     st.caption("Your choice stays active until you change it.")
 
 
+def render_message_content(message):
+    """Collapse long user prompts and let the user expand them on demand."""
+    content = message["content"]
+    if message["role"] == "user" and len(content) > 320:
+        preview = content[:320].rstrip()
+        if len(content) > 320:
+            preview += "…"
+        st.markdown(preview)
+        with st.expander("Read more"):
+            st.markdown(content)
+    else:
+        st.markdown(content)
+
+
 # -------------------- STYLING --------------------
 st.markdown(
     """
@@ -183,7 +197,10 @@ st.markdown(
     border: 1px solid #ff465c !important;
     border-radius: 22px !important;
     padding: 42px 13px 8px !important;
-    min-height: 112px !important;
+    height: 180px !important;
+    min-height: 180px !important;
+    max-height: 180px !important;
+    overflow: hidden !important;
     opacity: 1 !important;
     box-shadow: 0 5px 24px rgba(0, 0, 0, .45) !important;
 }
@@ -227,7 +244,12 @@ div[class*="st-key-open_intelligence_dialog"] button:hover {
     background: transparent !important;
     font-size: 16px !important;
     line-height: 1.5 !important;
+    height: 7.2em !important;
     min-height: 42px !important;
+    max-height: 7.2em !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    resize: none !important;
     opacity: 1 !important;
 }
 
@@ -321,17 +343,22 @@ p, label, li {
     [data-testid="stChatInput"] {
         border-radius: 20px !important;
         padding: 42px 12px 8px !important;
-        min-height: 112px !important;
+        height: 180px !important;
+        min-height: 180px !important;
+        max-height: 180px !important;
+        overflow: hidden !important;
     }
 
     div[class*="st-key-open_intelligence_dialog"] {
         left: 24px !important;
-        bottom: 134px !important;
+        bottom: 162px !important;
         max-width: 180px !important;
     }
 
     [data-testid="stChatInput"] textarea {
         font-size: 16px !important;
+        max-height: 7.2em !important;
+        overflow-y: auto !important;
     }
 
     .stButton > button {
@@ -508,7 +535,7 @@ if not chat["messages"]:
 
 for message in chat["messages"]:
     with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+        render_message_content(message)
         if message.get("attachments"):
             st.caption("📎 " + ", ".join(message["attachments"]))
 
@@ -559,7 +586,7 @@ if prompt:
         chat["title"] = prompt.strip().replace("\n", " ")[:30] or "New conversation"
 
     with st.chat_message("user"):
-        st.markdown(prompt)
+        render_message_content({"role": "user", "content": prompt})
         if attachment_names:
             st.caption("📎 " + ", ".join(attachment_names))
 
