@@ -161,7 +161,7 @@ st.markdown(
 }
 
 .jane-header {
-    margin-top: 1.4rem; /* clear the top bar without changing the messenger */
+    margin-top: 1.4rem;
     background: transparent;
     border: 0;
     border-radius: 0;
@@ -194,7 +194,6 @@ st.markdown(
 }
 
 .welcome-symbol {
-    /* Text-only Tron-style J replaces the Gemini star; no image is used. */
     display: block;
     width: 100%;
     box-sizing: border-box;
@@ -235,9 +234,6 @@ st.markdown(
     margin-bottom: 10px;
 }
 
-/* Native Streamlit chat input stays anchored at the bottom.
-   It starts compact (112px minimum) and can grow up to 156px for longer prompts,
-   while the textarea itself scrolls after roughly five lines. */
 [data-testid="stChatInput"] {
     position: relative !important;
     background: linear-gradient(
@@ -259,7 +255,6 @@ st.markdown(
     box-shadow: 0 5px 24px rgba(0, 0, 0, .45) !important;
 }
 
-/* Place the real, clickable mode-selector button visually inside the input. */
 div[class*="st-key-open_intelligence_dialog"] {
     position: fixed !important;
     z-index: 10002 !important;
@@ -312,7 +307,6 @@ div[class*="st-key-open_intelligence_dialog"] button:hover {
     opacity: 1 !important;
 }
 
-/* Style Streamlit's native submit control where the installed version exposes it. */
 [data-testid="stChatInput"] button {
     background: #ff465c !important;
     color: #ffffff !important;
@@ -325,7 +319,6 @@ div[class*="st-key-open_intelligence_dialog"] button:hover {
     color: #ffffff !important;
 }
 
-/* Keep the chat content from being obscured by the bottom composer. */
 .block-container {
     padding-bottom: 120px !important;
 }
@@ -608,8 +601,6 @@ if st.session_state.uploaded_files:
         + ", ".join(st.session_state.uploaded_files.keys())
     )
 
-# This real Streamlit button is visually positioned inside the native composer
-# using CSS above. It remains clickable and opens the same mode-selection dialog.
 if st.button(
     f"◉ {st.session_state.intelligence_mode} ▾",
     key="open_intelligence_dialog",
@@ -617,7 +608,6 @@ if st.button(
 ):
     intelligence_dialog()
 
-# Streamlit's native chat input is anchored to the bottom of the page.
 submitted_prompt = st.chat_input(
     "Message J.A.N.E....",
     key="jane_chat_input",
@@ -683,8 +673,10 @@ if prompt:
 
             system_instruction = (
                 "You are J.A.N.E. (Judicious, Analytical, and Neuroresearch Engine), "
-                "a careful and helpful assistant. Never claim to have verified "
-                "information or performed actions you have not completed. Uploaded "
+                "a careful and helpful assistant. "
+                "If anyone asks who created you, who made you, or about your origins, "
+                "you must state: 'I was made by Vihaan Shirale, with the name he adopted as Editex07, and I was given APIs by Google Gemini.' "
+                "Never claim to have verified information or performed actions you have not completed. Uploaded "
                 "files are not automatically included in this request. "
                 f"Active intelligence mode: {mode}. "
                 f"Mode instructions: {mode_instructions[mode]}"
