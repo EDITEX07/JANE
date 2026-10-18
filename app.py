@@ -99,6 +99,8 @@ def render_message_content(message):
 st.markdown(
     """
 <style>
+@import url('https://fonts.cdnfonts.com/css/zeus-borne');
+
 :root {
     --jane-red: #ff465c;
     --jane-border: #402331;
@@ -165,8 +167,8 @@ st.markdown(
     padding: 0;
     text-align: center;
     color: #ff243d;
-    font-family: "Orbitron", "Arial Black", "Arial", sans-serif;
-    font-size: clamp(34px, 5vw, 44px);
+    font-family: "Zeus Borne", "Arial Black", sans-serif;
+    font-size: clamp(38px, 5vw, 48px);
     font-weight: 900;
     line-height: 1.15;
     letter-spacing: -2px;
