@@ -78,12 +78,12 @@ st.markdown("""
 [data-testid="stChatInput"] textarea{min-height:72px!important;max-height:240px!important;font-size:16px!important;line-height:1.5!important}
 [data-testid="stForm"]{border:0!important;padding:0!important}
 [data-testid="stFormSubmitButton"]{display:flex;justify-content:flex-end;align-items:center}
-[data-testid="stFormSubmitButton"] button{width:44px!important;min-width:44px!important;height:44px!important;min-height:44px!important;padding:0!important;border-radius:50%!important;border:2px solid #ff465c!important;background:transparent!important;color:#ff465c!important;font-size:25px!important;font-weight:800!important;line-height:1!important;box-shadow:none!important}
-[data-testid="stFormSubmitButton"] button:hover{background:#ff465c!important;color:#fff!important;border-color:#ff465c!important}
-[data-testid="stFormSubmitButton"] button p{font-size:25px!important;line-height:1!important;margin:0!important}
-[data-testid="stTextArea"] textarea{background:transparent!important;color:#f4f4f5!important;border:0!important;border-radius:14px!important;font-size:16px!important;line-height:1.5!important;box-shadow:none!important;padding:10px 4px!important}
+[data-testid="stFormSubmitButton"] button{width:40px!important;min-width:40px!important;height:40px!important;min-height:40px!important;padding:0!important;border-radius:50%!important;border:0!important;background:#ff465c!important;color:#ffffff!important;font-size:26px!important;font-weight:700!important;line-height:1!important;box-shadow:none!important;display:flex!important;align-items:center!important;justify-content:center!important}
+[data-testid="stFormSubmitButton"] button:hover{background:#e9344b!important;color:#fff!important;border:0!important}
+[data-testid="stFormSubmitButton"] button p{font-size:26px!important;line-height:1!important;margin:0!important;color:#fff!important}
+[data-testid="stTextArea"] textarea{background:#17131d!important;opacity:1!important;color:#f4f4f5!important;border:0!important;border-radius:14px!important;font-size:16px!important;line-height:1.5!important;box-shadow:none!important;padding:10px 4px!important}
 [data-testid="stTextArea"] textarea:focus{border:0!important;box-shadow:none!important}
-[data-testid="stVerticalBlockBorderWrapper"]:has([data-testid="stForm"]){background:#17131d!important;border:1px solid #853047!important;border-radius:22px!important;padding:10px 13px!important;box-shadow:0 5px 24px rgba(0,0,0,.24)}
+[data-testid="stVerticalBlockBorderWrapper"]:has([data-testid="stForm"]){background:#17131d!important;opacity:1!important;border:1px solid #853047!important;border-radius:22px!important;padding:10px 13px!important;box-shadow:0 5px 24px rgba(0,0,0,.24)}
 [data-testid="stVerticalBlockBorderWrapper"]:has([data-testid="stForm"]):focus-within{border-color:#ff465c!important}
 .stButton>button{min-height:42px;border-radius:12px;border:1px solid var(--jane-border);background:#211923;color:#f4f4f5;transition:border-color .2s ease}
 .stButton>button:hover{border-color:var(--jane-red);color:#fff}
