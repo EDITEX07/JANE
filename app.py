@@ -122,27 +122,27 @@ st.markdown(
 }
 
 .jane-header {
-    background: #050507;
-    border: 1px solid #33202a;
-    border-radius: 18px;
-    padding: 15px 12px;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    padding: 10px 0 14px;
     text-align: center;
     margin: 0 0 18px;
-    box-shadow: 0 8px 28px rgba(0, 0, 0, .2);
+    box-shadow: none;
 }
 
 .jane-title {
-    color: var(--jane-red);
-    font-size: clamp(25px, 5vw, 34px);
-    font-weight: 900;
-    letter-spacing: 4px;
-    line-height: 1.2;
-}
-
-.jane-subtitle {
-    color: var(--jane-muted);
-    font-size: 12px;
-    margin-top: 6px;
+    display: inline-block;
+    color: #fff4f5;
+    font-family: "Orbitron", "Eurostile", "Arial Black", sans-serif;
+    font-size: clamp(30px, 6vw, 46px);
+    font-weight: 950;
+    letter-spacing: clamp(2px, 0.8vw, 6px);
+    line-height: 1.15;
+    -webkit-text-stroke: 1px #ff243d;
+    text-shadow: 0 0 3px #ff243d, 0 0 8px #ff1835,
+                 0 0 18px rgba(255, 24, 53, .9),
+                 0 0 34px rgba(255, 24, 53, .48);
 }
 
 .welcome-wrap {
@@ -490,9 +490,6 @@ st.markdown(
     """
 <div class="jane-header">
   <div class="jane-title">J.A.N.E.</div>
-  <div class="jane-subtitle">
-    Judicious, Analytical, and Neuroresearch Engine
-  </div>
 </div>
 """,
     unsafe_allow_html=True,
