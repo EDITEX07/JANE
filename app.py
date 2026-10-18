@@ -122,27 +122,31 @@ st.markdown(
 }
 
 .jane-header {
+    margin-top: 1.4rem; /* clear the top bar without changing the messenger */
     background: transparent;
     border: 0;
     border-radius: 0;
     padding: 10px 0 14px;
     text-align: center;
     margin: 0 0 18px;
+    min-height: 88px;
+    overflow: visible;
     box-shadow: none;
 }
 
 .jane-title {
     display: inline-block;
-    color: #fff4f5;
-    font-family: "Orbitron", "Eurostile", "Arial Black", sans-serif;
-    font-size: clamp(30px, 6vw, 46px);
-    font-weight: 950;
-    letter-spacing: clamp(2px, 0.8vw, 6px);
-    line-height: 1.15;
-    -webkit-text-stroke: 1px #ff243d;
-    text-shadow: 0 0 3px #ff243d, 0 0 8px #ff1835,
-                 0 0 18px rgba(255, 24, 53, .9),
-                 0 0 34px rgba(255, 24, 53, .48);
+    color: #16060a;
+    font-family: "Orbitron", "Arial Black", sans-serif;
+    font-size: clamp(36px, 8vw, 60px);
+    font-weight: 900;
+    letter-spacing: clamp(1px, 0.35vw, 3px);
+    line-height: 1.25;
+    transform: skewX(-5deg);
+    -webkit-text-stroke: 1.6px #ff243d;
+    text-shadow: 0 0 2px #fff0f2, 0 0 5px #ff243d,
+                 0 0 10px #ff1835, 0 0 20px rgba(255, 24, 53, .95),
+                 0 0 38px rgba(255, 24, 53, .62);
 }
 
 .welcome-wrap {
@@ -318,6 +322,9 @@ p, label, li {
     }
 
     .jane-header {
+        margin-top: 1.1rem;
+        min-height: 82px;
+        overflow: visible;
         padding: 13px 8px;
         border-radius: 15px;
         margin-bottom: 12px;
