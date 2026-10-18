@@ -76,6 +76,9 @@ st.markdown("""
 [data-testid="stChatInput"]{background:#17131d;border:1px solid #853047;border-radius:22px;padding:10px 13px;min-height:112px;box-shadow:0 5px 24px rgba(0,0,0,.24)}
 [data-testid="stChatInput"]:focus-within{border-color:var(--jane-red);box-shadow:0 0 0 1px var(--jane-red)}
 [data-testid="stChatInput"] textarea{min-height:72px!important;max-height:240px!important;font-size:16px!important;line-height:1.5!important}
+[data-testid="stForm"]{border:0!important;padding:0!important}
+[data-testid="stTextArea"] textarea{background:#17131d!important;color:#f4f4f5!important;border:1px solid #402331!important;border-radius:14px!important;font-size:16px!important;line-height:1.5!important}
+[data-testid="stTextArea"] textarea:focus{border-color:#ff465c!important;box-shadow:0 0 0 1px #ff465c!important}
 .stButton>button{min-height:42px;border-radius:12px;border:1px solid var(--jane-border);background:#211923;color:#f4f4f5;transition:border-color .2s ease}
 .stButton>button:hover{border-color:var(--jane-red);color:#fff}
 [data-testid="stFileUploader"]{background:rgba(21,19,26,.85);border-radius:14px}
@@ -151,20 +154,41 @@ for message in chat["messages"]:
         st.markdown(message["content"])
         if message.get("attachments"): st.caption("📎 " + ", ".join(message["attachments"]))
 
-# Compact control opens a modal rather than leaving three mode buttons on screen.
-mode_col, hint_col = st.columns([2, 5])
-with mode_col:
-    if st.button(f"◉ Intelligence · {st.session_state.intelligence_mode} ▾", key="open_intelligence_dialog", use_container_width=True):
-        intelligence_dialog()
-with hint_col:
-    st.caption("Choose how J.A.N.E. responds")
-
+# Integrated composer: intelligence selector sits inside the prompt box.
+# Streamlit's native st.chat_input cannot contain custom controls, so this uses
+# a styled text area and Send button in one bordered container.
 if st.session_state.uploaded_files:
     st.caption("📎 Attached in this session: " + ", ".join(st.session_state.uploaded_files.keys()))
 
-prompt = st.chat_input("Message J.A.N.E....", key="jane_chat_input")
+with st.container(border=True):
+    composer_mode_col, composer_hint_col = st.columns([2, 5])
+    with composer_mode_col:
+        if st.button(
+            f"◉ {st.session_state.intelligence_mode} ▾",
+            key="open_intelligence_dialog",
+            use_container_width=True,
+            help="Choose how J.A.N.E. responds",
+        ):
+            intelligence_dialog()
+    with composer_hint_col:
+        st.caption("Intelligence mode")
+
+    with st.form("jane_composer_form", clear_on_submit=True, border=False):
+        prompt_text = st.text_area(
+            "Message J.A.N.E.",
+            placeholder="Message J.A.N.E....",
+            key="jane_composer_text",
+            label_visibility="collapsed",
+            height=90,
+        )
+        send_col, empty_col = st.columns([1, 5])
+        with send_col:
+            send_clicked = st.form_submit_button("↑  Send", use_container_width=True)
+
+prompt = prompt_text.strip() if send_clicked and prompt_text else None
 if st.session_state.pending_prompt:
-    prompt = st.session_state.pending_prompt; st.session_state.pending_prompt = None
+    prompt = st.session_state.pending_prompt
+    st.session_state.pending_prompt = None
 
 if prompt:
     attachment_names = list(st.session_state.uploaded_files.keys())
