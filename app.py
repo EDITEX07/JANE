@@ -182,8 +182,9 @@ st.markdown(
     margin-bottom: 10px;
 }
 
-/* Native Streamlit chat input stays anchored at the bottom of the page.
-   Extra top padding makes room for the overlaid intelligence selector. */
+/* Native Streamlit chat input stays anchored at the bottom.
+   It starts compact (112px minimum) and can grow up to 156px for longer prompts,
+   while the textarea itself scrolls after roughly five lines. */
 [data-testid="stChatInput"] {
     position: relative !important;
     background: linear-gradient(
@@ -196,10 +197,10 @@ st.markdown(
     background-color: #210d16 !important;
     border: 1px solid #ff465c !important;
     border-radius: 22px !important;
-    padding: 42px 13px 8px !important;
-    height: 180px !important;
-    min-height: 180px !important;
-    max-height: 180px !important;
+    padding: 38px 13px 8px !important;
+    height: auto !important;
+    min-height: 112px !important;
+    max-height: 156px !important;
     overflow: hidden !important;
     opacity: 1 !important;
     box-shadow: 0 5px 24px rgba(0, 0, 0, .45) !important;
@@ -210,7 +211,7 @@ div[class*="st-key-open_intelligence_dialog"] {
     position: fixed !important;
     z-index: 10002 !important;
     left: max(18px, calc((100vw - 900px) / 2 + 16px)) !important;
-    bottom: 146px !important;
+    bottom: 94px !important;
     width: auto !important;
     max-width: 190px !important;
     margin: 0 !important;
@@ -244,7 +245,7 @@ div[class*="st-key-open_intelligence_dialog"] button:hover {
     background: transparent !important;
     font-size: 16px !important;
     line-height: 1.5 !important;
-    height: 7.2em !important;
+    height: auto !important;
     min-height: 42px !important;
     max-height: 7.2em !important;
     overflow-y: auto !important;
@@ -342,16 +343,16 @@ p, label, li {
 
     [data-testid="stChatInput"] {
         border-radius: 20px !important;
-        padding: 42px 12px 8px !important;
-        height: 180px !important;
-        min-height: 180px !important;
-        max-height: 180px !important;
+        padding: 38px 12px 8px !important;
+        height: auto !important;
+        min-height: 112px !important;
+        max-height: 156px !important;
         overflow: hidden !important;
     }
 
     div[class*="st-key-open_intelligence_dialog"] {
         left: 24px !important;
-        bottom: 162px !important;
+        bottom: 94px !important;
         max-width: 180px !important;
     }
 
