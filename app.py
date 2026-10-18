@@ -157,13 +157,23 @@ st.markdown(
 }
 
 .welcome-symbol {
-    display: inline-block;
-    background: #25121b;
-    border: 1px solid #592437;
-    border-radius: 22px;
-    padding: 15px 22px;
-    margin-bottom: 16px;
-    font-size: 30px;
+    /* Text-only Tron-style J replaces the Gemini star; no image is used. */
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    margin: 0 auto 16px;
+    padding: 0;
+    text-align: center;
+    color: #ff243d;
+    font-family: "Orbitron", "Arial Black", "Arial", sans-serif;
+    font-size: clamp(34px, 5vw, 44px);
+    font-weight: 900;
+    line-height: 1.15;
+    letter-spacing: -2px;
+    transform: skewX(-5deg);
+    -webkit-text-stroke: 1px #ff465c;
+    text-shadow: 0 0 2px #fff0f2, 0 0 6px #ff243d,
+                 0 0 14px #ff1835, 0 0 26px rgba(255, 24, 53, .85);
 }
 
 .welcome-title {
@@ -523,7 +533,7 @@ if not chat["messages"]:
     st.markdown(
         """
 <div class="welcome-wrap">
-  <div class="welcome-symbol">✦</div>
+  <div class="welcome-symbol" aria-label="J.A.N.E.">J</div>
   <div class="welcome-title">What can I help with?</div>
   <div class="welcome-copy">
     Research, analyze, organize, and think deeper with J.A.N.E.
