@@ -228,57 +228,64 @@ st.markdown(
     max-width: 540px;
 }
 
-/* Base message row: transparent, compact, and without avatar columns. */
+/* Compact message rows; hide avatars but retain role markers for styling. */
 [data-testid="stChatMessage"] {
     background: transparent !important;
     border: 0 !important;
     border-radius: 0 !important;
     box-shadow: none !important;
     padding: 0 !important;
-    margin: 0 0 14px !important;
+    margin: 0 0 12px !important;
     width: 100% !important;
     max-width: 100% !important;
 }
 
-/* Hide the human/robot avatar visuals but keep the role markers available
-   for the role-specific bubble selectors below. */
 [data-testid="stChatMessage"] [data-testid^="chatAvatarIcon"],
 [data-testid="stChatMessage"] [data-testid*="Avatar"] {
     display: none !important;
 }
 
-/* User prompts: compact red bubbles pushed to the right edge. */
-[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]),
+/* User prompts: dim red fill, right aligned, readable text. */
 [data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) {
     display: flex !important;
     justify-content: flex-end !important;
 }
-
 [data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) > div:last-child {
-    background: linear-gradient(135deg, #a91430 0%, #741126 100%) !important;
-    border: 1px solid #ff465c !important;
+    background: #792033 !important;
+    color: #fff !important;
+    border: 1px solid #b9344f !important;
     border-radius: 20px 20px 5px 20px !important;
     padding: 10px 15px !important;
     margin-left: auto !important;
     margin-right: 0 !important;
     width: fit-content !important;
     max-width: min(88%, 760px) !important;
-    box-shadow: 0 4px 18px rgba(255, 35, 70, .12) !important;
+    box-shadow: 0 3px 12px rgba(255, 35, 70, .10) !important;
     overflow-wrap: anywhere !important;
 }
-
-/* Assistant responses remain plain text without a message box. */
-[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {
-    display: block !important;
-    background: transparent !important;
-    border: none !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-    margin-right: auto !important;
-    max-width: 100% !important;
-    padding: 0 !important;
+[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) p,
+[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) li {
+    color: #fff !important;
 }
 
+/* J.A.N.E. responses: grey bubble with a red outline. */
+[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {
+    display: flex !important;
+    justify-content: flex-start !important;
+}
+[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) > div:last-child {
+    background: #29292f !important;
+    color: #f5f2f6 !important;
+    border: 1px solid #b9344f !important;
+    border-radius: 20px 20px 20px 5px !important;
+    padding: 12px 15px !important;
+    margin-left: 0 !important;
+    margin-right: auto !important;
+    width: fit-content !important;
+    max-width: 96% !important;
+    box-shadow: 0 3px 14px rgba(0, 0, 0, .18) !important;
+    overflow-wrap: anywhere !important;
+}
 
 /* Native Streamlit chat input stays anchored at the bottom.
    It starts compact (112px minimum) and can grow up to 156px for longer prompts,
@@ -447,8 +454,9 @@ p, label, li {
         padding: 9px 12px !important;
     }
 
-    [data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {
-        max-width: 100%;
+    [data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) > div:last-child {
+        max-width: 100% !important;
+        padding: 10px 12px !important;
     }
 
     [data-testid="stChatInput"] {
@@ -648,7 +656,7 @@ if not chat["messages"]:
                 st.rerun()
 
 for message_index, message in enumerate(chat["messages"]):
-    with st.chat_message(message["role"], avatar=None):
+    with st.chat_message(message["role"], avatar="user" if message["role"] == "user" else "assistant"):
         render_message_content(message)
         if message["role"] == "assistant":
             render_copy_answer(message["content"], f"history-{message_index}")
@@ -701,7 +709,7 @@ if prompt:
     if chat["title"] == "New conversation":
         chat["title"] = prompt.strip().replace("\n", " ")[:30] or "New conversation"
 
-    with st.chat_message("user", avatar=None):
+    with st.chat_message("user", avatar="user"):
         render_message_content({"role": "user", "content": prompt})
         if attachment_names:
             st.caption("📎 " + ", ".join(attachment_names))
@@ -803,7 +811,7 @@ if prompt:
         }
     )
 
-    with st.chat_message("assistant", avatar=None):
+    with st.chat_message("assistant", avatar="assistant"):
         st.markdown(answer)
         render_copy_answer(answer, f"latest-{len(chat['messages'])}")
 
