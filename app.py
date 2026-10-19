@@ -206,7 +206,7 @@ with st.sidebar:
         if st.button(label, key=f"select_chat_{chat_id}", use_container_width=True):
             st.session_state.current_chat = chat_id; st.rerun()
     st.divider(); st.markdown("### 📎 Documents & attachments")
-    uploaded = st.file_uploader("Attach files", type=["txt", "csv", "xlsx", "pdf", "json", "md"], accept_multiple_files=True, help="Files remain in the current app session and are not permanently stored.")
+    uploaded = st.file_uploader("Attach files", type=["txt", "csv", "xlsx", "pdf", "json", "md", "png", "jpg", "jpeg", "webp"], accept_multiple_files=True, help="Files remain in the current app session and are not permanently stored.")
     if uploaded:
         for file in uploaded:
             st.session_state.uploaded_files[file.name] = {"name": file.name, "data": file.getvalue(), "type": file.type, "size": file.size}
@@ -226,7 +226,34 @@ with st.sidebar:
                 if extension == "csv": st.dataframe(pd.read_csv(io.BytesIO(data)).head(30), use_container_width=True)
                 elif extension == "xlsx": st.dataframe(pd.read_excel(io.BytesIO(data)).head(30), use_container_width=True)
                 elif extension in ("txt", "md", "json"): st.text_area("File preview", data.decode("utf-8", errors="replace")[:6000], height=170, disabled=True)
-                else: st.info("PDF is attached. Reading PDF content is not implemented yet.")
+                elif extension in ("png", "jpg", "jpeg", "webp"):
+                    st.image(data, caption=preview_choice, use_container_width=True)
+                    st.caption("Image ready for OCR. J.A.N.E. can extract printed or handwritten text where legible.")
+                    if st.button("🔎 Extract text (OCR)", key=f"ocr_{preview_choice}", use_container_width=True):
+                        try:
+                            with st.spinner("J.A.N.E. is reading the image..."):
+                                ocr_client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
+                                mime_type = {
+                                    "png": "image/png", "jpg": "image/jpeg",
+                                    "jpeg": "image/jpeg", "webp": "image/webp",
+                                }[extension]
+                                ocr_part = types.Part.from_bytes(data=data, mime_type=mime_type)
+                                ocr_response = ocr_client.models.generate_content(
+                                    model="gemini-3.5-flash-lite",
+                                    contents=[
+                                        "Perform OCR on this image. Transcribe all visible text faithfully, preserving line breaks, spelling, punctuation, numbers, and the original language. Do not summarize, translate, or guess unreadable words. Mark unclear text as [unclear]. If there is no visible text, say so.",
+                                        ocr_part,
+                                    ],
+                                )
+                            extracted_text = (ocr_response.text or "No readable text was detected.").strip()
+                            st.session_state[f"ocr_result_{preview_choice}"] = extracted_text
+                        except Exception as ocr_error:
+                            st.error(f"OCR failed ({type(ocr_error).__name__}). Check GEMINI_API_KEY, model access, and Streamlit logs.")
+                    ocr_result_key = f"ocr_result_{preview_choice}"
+                    if st.session_state.get(ocr_result_key):
+                        st.text_area("Extracted text", value=st.session_state[ocr_result_key], height=180, key=f"ocr_text_{preview_choice}")
+                        st.download_button("⬇ Download extracted text", data=st.session_state[ocr_result_key], file_name=f"{Path(preview_choice).stem}_ocr.txt", mime="text/plain", key=f"download_ocr_{preview_choice}", use_container_width=True)
+                else: st.info("PDF is attached, but scanned-PDF OCR is not implemented in this version.")
             except Exception: st.warning("J.A.N.E. could not preview this file.")
     st.divider()
     with st.expander("👤 Account & preferences"):
@@ -433,4 +460,4 @@ if prompt:
             render_copy_answer(answer, f"latest-{len(chat['messages'])}")
             render_speak_controls(answer, f"latest-{len(chat['messages'])}")
 
-st.markdown("<div class='jane-footer'>J.A.N.E. 0.5 · Gemini + OpenAI fallback · Session data is temporary · Verify important decisions</div>", unsafe_allow_html=True)
+st.markdown("<div class='jane-footer'>J.A.N.E. 0.9 · OCR · Gemini + OpenAI fallback · Session data is temporary · Verify important decisions</div>", unsafe_allow_html=True)
