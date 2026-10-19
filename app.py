@@ -45,6 +45,57 @@ def active_chat():
     return st.session_state.chats[st.session_state.current_chat]
 
 
+def suggest_chat_title(prompt):
+    """Create a useful, human-readable title from the first substantive message."""
+    import re
+
+    text = re.sub(r"\s+", " ", str(prompt or "")).strip(" \t\r\n.,!?;:")
+    if not text:
+        return None
+
+    # Greetings and conversational openers should never become chat titles.
+    normalized = text.lower()
+    greeting = re.match(
+        r"^(hi|hello|hey|heya|yo|sup|good morning|good afternoon|good evening|how are you|what's up|whats up|thank you|thanks)(\b|[!.?, ]|$)",
+        normalized,
+    )
+    if greeting:
+        return None
+
+    # Make common study/learning conversations feel like purposeful sessions.
+    study_patterns = [
+        (r"^(?:i am |i'm |im )?(?:studying|study|learning|learn|revising|revision of|revise)\s+(?:about\s+|for\s+)?(.+)$", "Studying"),
+        (r"^(?:explain|teach me|help me understand)\s+(.+)$", "Understanding"),
+        (r"^(?:solve|help me solve)\s+(.+)$", "Solving"),
+        (r"^(?:research|researching)\s+(.+)$", "Researching"),
+        (r"^(?:plan|planning)\s+(.+)$", "Planning"),
+        (r"^(?:build|building|create|creating|develop|developing)\s+(.+)$", "Building"),
+    ]
+    for pattern, prefix in study_patterns:
+        match = re.match(pattern, text, flags=re.IGNORECASE)
+        if match:
+            topic = match.group(1).strip(" .!?;:")
+            if topic:
+                title = f"{prefix} {topic}"
+                return title[:56].rstrip(" ,.-")
+
+    # Use the meaningful prompt itself, with enough room to identify its topic.
+    text = re.sub(r"^(please\s+)?(can you|could you|would you|i want you to)\s+", "", text, flags=re.IGNORECASE)
+    return text[:56].rstrip(" ,.-") or None
+
+
+def update_chat_title(chat, prompt):
+    """Ignore greetings; allow the first meaningful message to name the chat."""
+    title = str(chat.get("title", "New conversation")).strip()
+    generic_titles = {"", "new conversation", "hi", "hello", "hey", "yo", "sup", "good morning", "good afternoon", "good evening"}
+    # Also repair older sessions that were titled from a greeting.
+    candidate = suggest_chat_title(prompt)
+    if not candidate:
+        return
+    if title.lower() in generic_titles:
+        chat["title"] = candidate
+
+
 @st.dialog("Choose intelligence")
 def intelligence_dialog():
     st.caption("How should J.A.N.E. approach your prompts?")
@@ -590,7 +641,7 @@ if prompt:
     attachment_names = list(st.session_state.uploaded_files.keys())
     mode = st.session_state.intelligence_mode
     chat["messages"].append({"role": "user", "content": prompt, "attachments": attachment_names, "intelligence_mode": mode})
-    if chat["title"] == "New conversation": chat["title"] = prompt.strip().replace("\n", " ")[:30] or "New conversation"
+    update_chat_title(chat, prompt)
     with st.chat_message("user", avatar="user"):
         st.markdown('<span class="jane-user-marker"></span>', unsafe_allow_html=True)
         render_message_content({"role": "user", "content": prompt})
