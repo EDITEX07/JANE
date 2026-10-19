@@ -258,11 +258,6 @@ st.markdown(
     padding-right: 0 !important;
 }
 
-/* Keep the safe boxed-J avatar glyph readable; no custom font dependency. */
-[data-testid="stChatMessage"] [data-testid="chatAvatarIcon-assistant"] {
-    color: #ff465c !important;
-    filter: drop-shadow(0 0 5px rgba(255, 36, 61, .45));
-}
 
 /* Native Streamlit chat input stays anchored at the bottom.
    It starts compact (112px minimum) and can grow up to 156px for longer prompts,
@@ -631,7 +626,7 @@ if not chat["messages"]:
                 st.rerun()
 
 for message_index, message in enumerate(chat["messages"]):
-    with st.chat_message(message["role"], avatar="🅹" if message["role"] == "assistant" else None):
+    with st.chat_message(message["role"]):
         render_message_content(message)
         if message["role"] == "assistant":
             render_copy_answer(message["content"], f"history-{message_index}")
@@ -786,7 +781,7 @@ if prompt:
         }
     )
 
-    with st.chat_message("assistant", avatar="🅹"):
+    with st.chat_message("assistant"):
         st.markdown(answer)
         render_copy_answer(answer, f"latest-{len(chat['messages'])}")
 
