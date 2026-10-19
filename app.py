@@ -120,13 +120,29 @@ html,body,[class*="css"]{font-family:Inter,system-ui,sans-serif}
 [data-testid="stChatMessage"]{display:flex!important;align-items:flex-start!important;gap:0!important;width:100%!important;max-width:100%!important;box-sizing:border-box!important;background:transparent!important;border:0!important;padding:0!important;margin:0 0 14px!important}
 [data-testid="stChatMessage"] [data-testid^="chatAvatarIcon"],[data-testid="stChatMessage"] [data-testid*="Avatar"]{display:none!important}
 [data-testid="stChatMessage"] [data-testid="stChatMessageContent"],[data-testid="stChatMessage"] [data-testid="stChatMessageContent"]>div,[data-testid="stChatMessage"] .stChatMessageContent{box-sizing:border-box!important;flex:0 1 auto!important;min-width:0!important;width:auto!important;overflow-wrap:anywhere!important}
-/* User prompts: right-aligned animated dim-red glass rectangles */
-[data-testid="stChatMessage"]:has([data-testid*="chatAvatarIcon-user"]){justify-content:flex-end!important}
-[data-testid="stChatMessage"]:has([data-testid*="chatAvatarIcon-user"]) [data-testid="stChatMessageContent"],[data-testid="stChatMessage"]:has([data-testid*="chatAvatarIcon-user"]) .stChatMessageContent{display:block!important;flex:0 1 auto!important;width:fit-content!important;max-width:min(88%,760px)!important;margin:0 0 0 auto!important;padding:10px 15px!important;color:#fff!important;background:linear-gradient(115deg,rgba(112,16,38,.72),rgba(57,13,28,.82),rgba(135,22,45,.7),rgba(47,12,25,.84))!important;background-size:260% 260%!important;animation:userGradientFlow 8s ease infinite!important;border:1px solid rgba(255,70,92,.52)!important;border-radius:18px 18px 5px 18px!important;box-shadow:0 4px 22px rgba(255,35,70,.10),inset 0 1px rgba(255,255,255,.035)!important;overflow-wrap:anywhere!important}
+/* Message layout. Streamlit's avatar test IDs differ between releases, so
+   style both the current avatar marker and the common accessible-name fallback. */
+[data-testid="stChatMessage"]{min-width:0!important}
+[data-testid="stChatMessage"]:has([data-testid*="chatAvatarIcon-user"]),
+[data-testid="stChatMessage"]:has([aria-label="user"]),
+[data-testid="stChatMessage"]:has(img[alt="user"]){justify-content:flex-end!important}
+[data-testid="stChatMessage"]:has([data-testid*="chatAvatarIcon-user"]) [data-testid="stChatMessageContent"],
+[data-testid="stChatMessage"]:has([aria-label="user"]) [data-testid="stChatMessageContent"],
+[data-testid="stChatMessage"]:has(img[alt="user"]) [data-testid="stChatMessageContent"],
+[data-testid="stChatMessage"]:has([data-testid*="chatAvatarIcon-user"]) .stChatMessageContent,
+[data-testid="stChatMessage"]:has([aria-label="user"]) .stChatMessageContent,
+[data-testid="stChatMessage"]:has(img[alt="user"]) .stChatMessageContent{display:block!important;flex:0 1 auto!important;width:fit-content!important;max-width:min(88%,760px)!important;margin:0 0 0 auto!important;padding:10px 15px!important;color:#fff!important;background:linear-gradient(115deg,rgba(112,16,38,.78),rgba(57,13,28,.88),rgba(135,22,45,.76),rgba(47,12,25,.88))!important;background-size:260% 260%!important;animation:userGradientFlow 8s ease infinite!important;border:1px solid rgba(255,70,92,.58)!important;border-radius:18px 18px 5px 18px!important;box-shadow:0 4px 22px rgba(255,35,70,.13),inset 0 1px rgba(255,255,255,.04)!important;overflow-wrap:anywhere!important}
 @keyframes userGradientFlow{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
-/* J.A.N.E. speaks without a surrounding bubble/card */
-[data-testid="stChatMessage"]:has([data-testid*="chatAvatarIcon-assistant"]){justify-content:flex-start!important}
-[data-testid="stChatMessage"]:has([data-testid*="chatAvatarIcon-assistant"]) [data-testid="stChatMessageContent"],[data-testid="stChatMessage"]:has([data-testid*="chatAvatarIcon-assistant"]) .stChatMessageContent{display:block!important;flex:1 1 auto!important;width:100%!important;max-width:100%!important;margin:0 auto 0 0!important;padding:4px 0 8px!important;color:#f5f2f6!important;background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;overflow-wrap:anywhere!important}
+/* Assistant replies remain plain, with no bubble/card. */
+[data-testid="stChatMessage"]:has([data-testid*="chatAvatarIcon-assistant"]),
+[data-testid="stChatMessage"]:has([aria-label="assistant"]),
+[data-testid="stChatMessage"]:has(img[alt="assistant"]){justify-content:flex-start!important}
+[data-testid="stChatMessage"]:has([data-testid*="chatAvatarIcon-assistant"]) [data-testid="stChatMessageContent"],
+[data-testid="stChatMessage"]:has([aria-label="assistant"]) [data-testid="stChatMessageContent"],
+[data-testid="stChatMessage"]:has(img[alt="assistant"]) [data-testid="stChatMessageContent"],
+[data-testid="stChatMessage"]:has([data-testid*="chatAvatarIcon-assistant"]) .stChatMessageContent,
+[data-testid="stChatMessage"]:has([aria-label="assistant"]) .stChatMessageContent,
+[data-testid="stChatMessage"]:has(img[alt="assistant"]) .stChatMessageContent{display:block!important;flex:1 1 auto!important;width:100%!important;max-width:100%!important;margin:0 auto 0 0!important;padding:4px 0 8px!important;color:#f5f2f6!important;background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;overflow-wrap:anywhere!important}
 [data-testid="stChatMessage"] [data-testid="stMarkdownContainer"]{color:inherit!important;overflow-wrap:anywhere!important}[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p:first-child{margin-top:0!important}[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p:last-child{margin-bottom:0!important}
 [data-testid="stChatInput"]{position:relative!important;background:linear-gradient(125deg,#a10f2b 0%,#5a1023 32%,#1b0e16 67%,#08080b 100%)!important;border:1px solid #ff465c!important;border-radius:22px!important;padding:38px 13px 8px!important;min-height:112px!important;max-height:156px!important;overflow:hidden!important;box-shadow:0 5px 24px rgba(0,0,0,.45)!important}
 div[class*="st-key-open_intelligence_dialog"]{position:fixed!important;z-index:10002!important;left:max(18px,calc((100vw - 900px)/2 + 16px))!important;bottom:169px!important;width:auto!important;max-width:190px!important;margin:0!important}
