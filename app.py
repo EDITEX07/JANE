@@ -21,7 +21,7 @@ if "chats" not in st.session_state:
     st.session_state.current_chat = first_id
 for key, default in {
     "profile_name": "Explorer", "api_enabled": False, "uploaded_files": {},
-    "pending_prompt": None, "intelligence_mode": "Adaptive",
+    "pending_prompt": None, "intelligence_mode": "Adaptive", "auto_speak": False,
 }.items():
     if key not in st.session_state:
         st.session_state[key] = default
@@ -86,16 +86,18 @@ button.addEventListener("click",async()=>{{try{{await navigator.clipboard.writeT
 </script>''', height=42, scrolling=False)
 
 
-def render_speak_controls(content, key):
-    """Manual browser text-to-speech controls; voices vary by device/browser."""
+def render_speak_controls(content, key, auto_speak=False):
+    """Browser text-to-speech; voice availability depends on device/browser."""
     payload = json.dumps(content, ensure_ascii=False).replace("</", "<\\/")
     components.html(f'''<div style="display:flex;gap:8px;align-items:center;padding:2px 0 10px;flex-wrap:wrap">
 <button id="speak-{key}" style="background:#24131c;color:#fff;border:1px solid #b9344f;border-radius:9px;padding:6px 11px;font-size:12px;cursor:pointer">🔊 Speak</button>
 <button id="stop-{key}" style="background:#171217;color:#d8d1d9;border:1px solid #49303b;border-radius:9px;padding:6px 11px;font-size:12px;cursor:pointer">■ Stop</button>
 <span id="speech-status-{key}" style="color:#aaa5b2;font:12px Arial,sans-serif"></span></div>
-<script>(()=>{{const text={payload};const speak=document.getElementById("speak-{key}");const stop=document.getElementById("stop-{key}");const status=document.getElementById("speech-status-{key}");
-speak.addEventListener("click",()=>{{if(!( "speechSynthesis" in window)){{status.textContent="Speech is not supported by this browser.";return;}}window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.rate=0.92;u.pitch=0.92;u.volume=1;const voices=window.speechSynthesis.getVoices();const voice=voices.find(v=>/^en/i.test(v.lang)&&/male|daniel|david|guy|aaron|james|tom|alex|mark/i.test(v.name))||voices.find(v=>/^en/i.test(v.lang)&&/natural|premium|enhanced/i.test(v.name))||voices.find(v=>/^en-IN/i.test(v.lang))||voices.find(v=>/^en/i.test(v.lang));if(voice)u.voice=voice;u.onstart=()=>status.textContent="Speaking…";u.onend=()=>status.textContent="Finished";u.onerror=()=>status.textContent="Speech could not start.";window.speechSynthesis.speak(u);}});
-stop.addEventListener("click",()=>{{if("speechSynthesis" in window)window.speechSynthesis.cancel();status.textContent="Stopped";}});}})();</script>''', height=54, scrolling=False)
+<script>(()=>{{const text={payload};const autoSpeak={str(auto_speak).lower()};const speak=document.getElementById("speak-{key}");const stop=document.getElementById("stop-{key}");const status=document.getElementById("speech-status-{key}");
+function startSpeech(){{if(!( "speechSynthesis" in window)){{status.textContent="Speech is not supported by this browser.";return;}}window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.rate=0.92;u.pitch=0.92;u.volume=1;const voices=window.speechSynthesis.getVoices();const voice=voices.find(v=>/^en/i.test(v.lang)&&/male|daniel|david|guy|aaron|james|tom|alex|mark/i.test(v.name))||voices.find(v=>/^en/i.test(v.lang)&&/natural|premium|enhanced/i.test(v.name))||voices.find(v=>/^en-IN/i.test(v.lang))||voices.find(v=>/^en/i.test(v.lang));if(voice)u.voice=voice;u.onstart=()=>status.textContent="Speaking…";u.onend=()=>status.textContent="Finished";u.onerror=()=>status.textContent="Speech could not start; tap Speak if autoplay was blocked.";window.speechSynthesis.speak(u);}}
+speak.addEventListener("click",startSpeech);
+stop.addEventListener("click",()=>{{if("speechSynthesis" in window)window.speechSynthesis.cancel();status.textContent="Stopped";}});
+if(autoSpeak){{status.textContent="Starting voice…";setTimeout(startSpeech,250);}}}})();</script>''', height=54, scrolling=False)
 
 
 # -------------------- STYLING --------------------
@@ -190,6 +192,7 @@ with st.sidebar:
         st.session_state.profile_name = st.text_input("Display name", value=st.session_state.profile_name, max_chars=40)
         st.caption("This is a session profile, not a login account.")
         st.session_state.api_enabled = st.toggle("Enable live AI requests", value=st.session_state.api_enabled, help="Gemini API usage may be subject to quotas or charges. Disabled by default.")
+        st.session_state.auto_speak = st.toggle("Automatically speak new replies", value=st.session_state.auto_speak, help="Uses your browser/device text-to-speech voice. Browser autoplay rules may require tapping Speak once.")
     if st.button("🗑️ Clear current conversation", use_container_width=True):
         active_chat()["messages"] = []; active_chat()["title"] = "New conversation"; st.rerun()
 
@@ -372,6 +375,6 @@ if prompt:
             st.download_button("⬇ Download image", data=generated_image_bytes, file_name="jane_generated_image.png", mime="image/png", key=f"download_latest_image_{len(chat['messages'])}")
         else:
             render_copy_answer(answer, f"latest-{len(chat['messages'])}")
-            render_speak_controls(answer, f"latest-{len(chat['messages'])}")
+            render_speak_controls(answer, f"latest-{len(chat['messages'])}", auto_speak=st.session_state.auto_speak)
 
 st.markdown("<div class='jane-footer'>J.A.N.E. 0.5 · Gemini + OpenAI fallback · Session data is temporary · Verify important decisions</div>", unsafe_allow_html=True)
