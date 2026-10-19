@@ -228,73 +228,40 @@ st.markdown(
     max-width: 540px;
 }
 
-/* ChatGPT-like message rows: no visible avatars; keep role markers in DOM. */
+/* Chat bubbles: style the message content with compatibility fallbacks. */
 [data-testid="stChatMessage"] {
-    display: flex !important;
-    align-items: flex-start !important;
-    background: transparent !important;
-    border: 0 !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-    padding: 0 !important;
-    margin: 0 0 14px !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    box-sizing: border-box !important;
+    display: flex !important; align-items: flex-start !important;
+    background: transparent !important; border: 0 !important; border-radius: 0 !important;
+    box-shadow: none !important; padding: 0 !important; margin: 0 0 14px !important;
+    width: 100% !important; max-width: 100% !important; box-sizing: border-box !important;
 }
-
 [data-testid="stChatMessage"] [data-testid^="chatAvatarIcon"],
-[data-testid="stChatMessage"] [data-testid*="Avatar"] {
-    display: none !important;
-}
-
-/* Streamlit message content is the bubble itself. */
-[data-testid="stChatMessage"] [data-testid="stChatMessageContent"] {
-    box-sizing: border-box !important;
-    width: fit-content !important;
-    min-width: 0 !important;
+[data-testid="stChatMessage"] [data-testid*="Avatar"] { display: none !important; }
+[data-testid="stChatMessage"] [data-testid="stChatMessageContent"],
+[data-testid="stChatMessage"] .stChatMessageContent {
+    box-sizing: border-box !important; width: fit-content !important; min-width: 0 !important;
     overflow-wrap: anywhere !important;
 }
-
-/* USER: dim red bubble on the RIGHT, close to the screen edge. */
-[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) {
-    justify-content: flex-end !important;
+/* USER: dim red rounded rectangle aligned right. */
+[data-testid="stChatMessage"]:has([data-testid*="user"]) { justify-content: flex-end !important; }
+[data-testid="stChatMessage"]:has([data-testid*="user"]) [data-testid="stChatMessageContent"],
+[data-testid="stChatMessage"]:has([data-testid*="user"]) .stChatMessageContent {
+    background: #792033 !important; color: #fff !important; border: 1px solid #b9344f !important;
+    border-radius: 20px 20px 5px 20px !important; padding: 10px 15px !important;
+    margin: 0 0 0 auto !important; width: fit-content !important; max-width: min(88%, 760px) !important;
+    box-shadow: 0 3px 12px rgba(255,35,70,.10) !important;
 }
-[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) [data-testid="stChatMessageContent"] {
-    background: #792033 !important;
-    color: #ffffff !important;
-    border: 1px solid #b9344f !important;
-    border-radius: 20px 20px 5px 20px !important;
-    padding: 10px 15px !important;
-    margin: 0 0 0 auto !important;
-    width: fit-content !important;
-    max-width: min(88%, 760px) !important;
-    box-shadow: 0 3px 12px rgba(255, 35, 70, .10) !important;
+[data-testid="stChatMessage"]:has([data-testid*="user"]) [data-testid="stMarkdownContainer"] { color: #fff !important; }
+/* J.A.N.E.: grey rectangle with red outline aligned left. */
+[data-testid="stChatMessage"]:has([data-testid*="assistant"]) { justify-content: flex-start !important; }
+[data-testid="stChatMessage"]:has([data-testid*="assistant"]) [data-testid="stChatMessageContent"],
+[data-testid="stChatMessage"]:has([data-testid*="assistant"]) .stChatMessageContent {
+    background: #29292f !important; color: #f5f2f6 !important; border: 1px solid #b9344f !important;
+    border-radius: 20px 20px 20px 5px !important; padding: 12px 15px !important;
+    margin: 0 auto 0 0 !important; width: fit-content !important; max-width: 96% !important;
+    box-shadow: 0 3px 14px rgba(0,0,0,.18) !important;
 }
-[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) [data-testid="stChatMessageContent"] p,
-[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) [data-testid="stChatMessageContent"] li,
-[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) [data-testid="stChatMessageContent"] * {
-    color: #ffffff !important;
-}
-
-/* J.A.N.E.: grey bubble with red outline on the LEFT. */
-[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {
-    justify-content: flex-start !important;
-}
-[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) [data-testid="stChatMessageContent"] {
-    background: #29292f !important;
-    color: #f5f2f6 !important;
-    border: 1px solid #b9344f !important;
-    border-radius: 20px 20px 20px 5px !important;
-    padding: 12px 15px !important;
-    margin: 0 auto 0 0 !important;
-    width: fit-content !important;
-    max-width: 96% !important;
-    box-shadow: 0 3px 14px rgba(0, 0, 0, .18) !important;
-}
-[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) [data-testid="stChatMessageContent"] * {
-    color: #f5f2f6 !important;
-}
+[data-testid="stChatMessage"]:has([data-testid*="assistant"]) [data-testid="stMarkdownContainer"] { color: #f5f2f6 !important; }
 
 /* Native Streamlit chat input stays anchored at the bottom.
    It starts compact (112px minimum) and can grow up to 156px for longer prompts,
@@ -451,21 +418,6 @@ p, label, li {
 
     .welcome-wrap {
         padding-top: 28px;
-    }
-
-    [data-testid="stChatMessage"] {
-        padding: 10px;
-        border-radius: 15px;
-    }
-
-    [data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) [data-testid="stChatMessageContent"] {
-        max-width: 94% !important;
-        padding: 9px 12px !important;
-    }
-
-    [data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) [data-testid="stChatMessageContent"] {
-        max-width: 100% !important;
-        padding: 10px 12px !important;
     }
 
     [data-testid="stChatInput"] {
