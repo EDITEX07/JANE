@@ -100,26 +100,22 @@ def render_speak_controls(content, key):
     components.html(f'''<div style="font-family:Arial,sans-serif;display:flex;gap:8px;align-items:center;background:transparent">
 <button id="speak-{safe_key}" style="background:#a10f2b;color:white;border:0;border-radius:18px;padding:8px 13px;cursor:pointer">🔊 Read aloud</button>
 <button id="stop-{safe_key}" style="background:#171217;color:#eee;border:1px solid #49303b;border-radius:18px;padding:8px 13px;cursor:pointer">■ Stop</button>
-<span id="voice-status-{safe_key}" style="font-size:12px;color:#aaa5b2"></span></div>
+</div>
 <script>
 (()=>{{
  const text={text_payload};
  const rate={speed};
  const speak=document.getElementById("speak-{safe_key}");
  const stop=document.getElementById("stop-{safe_key}");
- const status=document.getElementById("voice-status-{safe_key}");
  speak.addEventListener("click",()=>{{
-   if(!text){{status.textContent="Nothing to read.";return;}}
-   if(!("speechSynthesis" in window)||!("SpeechSynthesisUtterance" in window)){{status.textContent="Device/browser voice is not supported here.";return;}}
+   if(!text)return;
+   if(!("speechSynthesis" in window)||!("SpeechSynthesisUtterance" in window))return;
    window.speechSynthesis.cancel();
    const utterance=new SpeechSynthesisUtterance(text);
    utterance.rate=Math.max(0.5,Math.min(3,rate));
-   utterance.onstart=()=>status.textContent="Speaking…";
-   utterance.onend=()=>status.textContent="Finished.";
-   utterance.onerror=()=>status.textContent="Voice playback failed. Try your device browser.";
    window.speechSynthesis.speak(utterance);
  }});
- stop.addEventListener("click",()=>{{if("speechSynthesis" in window)window.speechSynthesis.cancel();status.textContent="Stopped.";}});
+ stop.addEventListener("click",()=>{{if("speechSynthesis" in window)window.speechSynthesis.cancel();}});
 }})();
 </script>''', height=52, scrolling=False)
 
@@ -210,6 +206,128 @@ def firebase_auth_request(endpoint, email, password):
             "API_KEY_INVALID": "The Firebase API key is invalid. Check Streamlit Secrets.",
         }
         raise ValueError(friendly.get(code, f"Firebase authentication failed: {code}")) from None
+
+
+# -------------------- FIRESTORE MEMORY 2.0 --------------------
+def _firebase_project_id():
+    try:
+        return str(st.secrets.get("FIREBASE_PROJECT_ID", "")).strip()
+    except Exception:
+        return ""
+
+
+def _firestore_request(method, path, payload=None):
+    """Call Firestore REST using the signed-in user's Firebase ID token."""
+    user = st.session_state.get("auth_user") or {}
+    token = st.session_state.get("auth_token")
+    project_id = _firebase_project_id()
+    if not user.get("uid") or not token:
+        raise RuntimeError("Sign in to use personal memory.")
+    if not project_id:
+        raise RuntimeError("Add FIREBASE_PROJECT_ID to Streamlit Secrets to enable memory.")
+    url = "https://firestore.googleapis.com/v1/" + path.lstrip("/")
+    data = None if payload is None else json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    request = urllib.request.Request(url, data=data, headers={
+        "Authorization": "Bearer " + token,
+        "Content-Type": "application/json; charset=utf-8",
+    }, method=method)
+    try:
+        with urllib.request.urlopen(request, timeout=12) as response:
+            raw = response.read().decode("utf-8")
+            return json.loads(raw) if raw else {}
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")[:500]
+        if exc.code in (401, 403):
+            raise RuntimeError("Firestore denied memory access. Check the user's sign-in token and Firestore security rules.") from None
+        raise RuntimeError(f"Firestore memory request failed ({exc.code}). {detail}") from None
+
+
+def _memory_collection_path():
+    uid = (st.session_state.get("auth_user") or {}).get("uid", "")
+    if not uid or "/" in uid:
+        raise RuntimeError("A valid signed-in user is required.")
+    return f"projects/{_firebase_project_id()}/databases/(default)/documents/users/{uid}/memories"
+
+
+def _decode_firestore_value(value):
+    if "stringValue" in value: return value["stringValue"]
+    if "booleanValue" in value: return value["booleanValue"]
+    if "integerValue" in value:
+        try: return int(value["integerValue"])
+        except Exception: return value["integerValue"]
+    if "timestampValue" in value: return value["timestampValue"]
+    return None
+
+
+def load_memories():
+    if not st.session_state.get("auth_user"):
+        return []
+    result = _firestore_request("GET", _memory_collection_path())
+    memories = []
+    for doc in result.get("documents", []):
+        fields = {k: _decode_firestore_value(v) for k, v in doc.get("fields", {}).items()}
+        memories.append({"id": doc.get("name", "").rsplit("/", 1)[-1], **fields})
+    memories.sort(key=lambda item: str(item.get("updatedAt", "")), reverse=True)
+    return memories
+
+
+def save_memory(text, source="automatic"):
+    text = " ".join(str(text or "").split()).strip()
+    if not text or len(text) > 600:
+        return False
+    # Do not save duplicates; compare normalized memory text.
+    memories = load_memories()
+    normalized = text.casefold().rstrip(".! ")
+    for item in memories:
+        if str(item.get("text", "")).casefold().rstrip(".! ") == normalized:
+            return False
+    now = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+    fields = {
+        "text": {"stringValue": text},
+        "source": {"stringValue": source},
+        "createdAt": {"timestampValue": now},
+        "updatedAt": {"timestampValue": now},
+    }
+    doc_id = "m_" + uuid.uuid4().hex
+    _firestore_request("POST", _memory_collection_path() + "?documentId=" + doc_id, {"fields": fields})
+    return True
+
+
+def delete_memory(memory_id):
+    if not memory_id or "/" in memory_id or ".." in memory_id:
+        raise RuntimeError("Invalid memory ID.")
+    _firestore_request("DELETE", _memory_collection_path() + "/" + memory_id)
+
+
+def extract_memories(user_text, assistant_text):
+    """Use Gemini to extract a few durable, non-sensitive facts; never for Guest sessions."""
+    if not st.session_state.get("auth_user"):
+        return []
+    # Explicit remember commands are handled locally without an extraction call.
+    try:
+        client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
+        instruction = (
+            "Extract up to 3 durable, useful user memories from the exchange. Return ONLY a JSON array of short strings. "
+            "Save preferences, long-running projects, goals, and stable workflow choices. Do not save one-off questions, "
+            "temporary details, passwords, API keys, precise location, financial account details, health data, or other sensitive personal data. "
+            "Do not infer facts not explicitly supported by the exchange. Return [] if nothing merits memory. Each string max 240 characters.\n"
+            + "USER: " + str(user_text)[:2500] + "\nASSISTANT: " + str(assistant_text)[:1200]
+        )
+        result = client.models.generate_content(model="gemini-3.5-flash-lite", contents=instruction)
+        raw = (result.text or "[]").strip()
+        if raw.startswith("```"):
+            raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+        parsed = json.loads(raw)
+        return [" ".join(str(x).split())[:240] for x in parsed if isinstance(x, str) and x.strip()][:3] if isinstance(parsed, list) else []
+    except Exception:
+        return []
+
+
+def handle_explicit_memory_command(prompt):
+    """Return a memory payload for explicit remember requests, otherwise None."""
+    import re
+    match = re.match(r"^\s*(?:j\.a\.n\.e\.\s*)?(?:remember(?:\s+that)?|save\s+to\s+memory)\s*[:,-]?\s*(.+?)\s*$", prompt, re.I | re.S)
+    return match.group(1).strip() if match else None
 
 
 # -------------------- FIRST-RUN WELCOME / SIGN-IN GATE --------------------
@@ -307,6 +425,29 @@ with st.sidebar:
         st.caption("Uses your browser/device voice. Available voices depend on your system.")
     if st.session_state.get("auth_user"):
         st.caption("Signed in: " + st.session_state.auth_user.get("email", "Account"))
+        with st.expander("🧠 Memory center", expanded=False):
+            st.caption("Only your signed-in account can access these memories. Review or delete anything here.")
+            if st.button("↻ Refresh memories", key="refresh_memories", use_container_width=True):
+                st.session_state.pop("memory_cache", None)
+                st.rerun()
+            try:
+                memory_items = load_memories()
+                st.session_state.memory_cache = memory_items
+                if not memory_items:
+                    st.caption("No saved memories yet. Say ‘Remember that …’ or chat normally to build memory.")
+                for mem in memory_items:
+                    with st.container(border=True):
+                        st.write(mem.get("text", ""))
+                        st.caption("Saved: " + str(mem.get("updatedAt", ""))[:10] + " · " + str(mem.get("source", "automatic")))
+                        if st.button("Delete memory", key="delete_memory_" + mem["id"], use_container_width=True):
+                            try:
+                                delete_memory(mem["id"])
+                                st.success("Memory deleted.")
+                                st.rerun()
+                            except Exception as exc:
+                                st.error(str(exc))
+            except Exception as exc:
+                st.warning("Memory is not connected yet: " + str(exc))
         if st.button("Sign out", use_container_width=True, key="jane_sign_out"):
             st.session_state.auth_user = None
             st.session_state.auth_token = None
@@ -375,7 +516,7 @@ with st.sidebar:
         st.session_state.profile_name = st.text_input("Display name", value=st.session_state.profile_name, max_chars=40)
         st.caption("This is a session profile, not a login account.")
         st.caption("Live AI requests are always enabled. API usage may be subject to quotas or charges.")
-        st.caption("AI-generated voice is available from the Speak button below each reply.")
+        st.caption("Read replies aloud using your browser/device voice; no separate voice API key is needed.")
     if st.button("🗑️ Clear current conversation", use_container_width=True):
         active_chat()["messages"] = []; active_chat()["title"] = "New conversation"; st.rerun()
 
@@ -432,6 +573,20 @@ if st.session_state.pending_prompt:
 
 # -------------------- PROCESS PROMPT --------------------
 if prompt:
+    explicit_memory = handle_explicit_memory_command(prompt)
+    if explicit_memory:
+        if not st.session_state.get("auth_user"):
+            st.session_state.chats[st.session_state.current_chat]["messages"].append({"role": "user", "content": prompt})
+            st.session_state.chats[st.session_state.current_chat]["messages"].append({"role": "assistant", "content": "Memory is available only when you sign in. Guest sessions do not save memories."})
+            st.rerun()
+        try:
+            saved = save_memory(explicit_memory, source="explicit")
+            notice = "Saved to your J.A.N.E. memory." if saved else "That memory is already saved (or could not be added as a duplicate)."
+        except Exception as exc:
+            notice = "I couldn't save that memory: " + str(exc)
+        st.session_state.chats[st.session_state.current_chat]["messages"].append({"role": "user", "content": prompt})
+        st.session_state.chats[st.session_state.current_chat]["messages"].append({"role": "assistant", "content": notice})
+        st.rerun()
     attachment_names = list(st.session_state.uploaded_files.keys())
     mode = st.session_state.intelligence_mode
     chat["messages"].append({"role": "user", "content": prompt, "attachments": attachment_names, "intelligence_mode": mode})
@@ -571,6 +726,15 @@ if prompt:
         assistant_message["image_bytes"] = generated_image_bytes
         assistant_message["image_filename"] = "jane_generated_image.png"
     chat["messages"].append(assistant_message)
+    # Signed-in users get automatic memory formation. Guest memory is deliberately disabled.
+    if st.session_state.get("auth_user") and not generated_image_bytes:
+        candidates = extract_memories(prompt, answer)
+        for candidate in candidates:
+            try:
+                save_memory(candidate, source="automatic")
+            except Exception:
+                # A memory write must never break the chat response.
+                pass
     with st.chat_message("assistant", avatar="assistant"):
         st.markdown(answer)
         if generated_image_bytes:
