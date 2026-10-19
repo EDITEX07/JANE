@@ -594,4 +594,4 @@ if prompt:
             render_copy_answer(answer, f"latest-{len(chat['messages'])}")
             render_speak_controls(answer, f"latest-{len(chat['messages'])}")
 
-st.markdown("<div class='jane-footer'>J.A.N.E. 0.91 · OCR · Gemini + OpenAI fallback · Guest data is temporary · Verify important decisions</div>", unsafe_allow_html=True)
+st.markdown("<div class='jane-footer'>J.A.N.E. 0.9 · OCR · Gemini + OpenAI fallback · Guest data is temporary · Verify important decisions</div>", unsafe_allow_html=True)
