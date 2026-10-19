@@ -24,7 +24,7 @@ if "chats" not in st.session_state:
 for key, default in {
     "profile_name": "Explorer", "api_enabled": True, "uploaded_files": {},
     "pending_prompt": None, "intelligence_mode": "Adaptive",
-    "auth_user": None, "auth_token": None, "auth_mode": "signin",
+    "auth_user": None, "auth_token": None, "auth_mode": "signin", "voice_speed": 1.0,
 }.items():
     if key not in st.session_state:
         st.session_state[key] = default
@@ -93,56 +93,35 @@ button.addEventListener("click",async()=>{{try{{await navigator.clipboard.writeT
 
 
 def render_speak_controls(content, key):
-    """Generate AI speech on demand; never use browser/device speech synthesis."""
-    # Keep API keys server-side in Streamlit Secrets; never place them in HTML/JS.
+    """Read replies with browser/device speech synthesis, without a TTS API call."""
     safe_key = "voice_" + "".join(ch if ch.isalnum() else "_" for ch in str(key))
-    audio_state_key = f"generated_audio_{safe_key}"
-    text_state_key = f"generated_audio_text_{safe_key}"
-
-    # Speech is generated only after the user presses Speak.
-    if st.button("🔊 Speak with J.A.N.E. voice", key=f"speak_button_{safe_key}"):
-        try:
-            api_key = st.secrets.get("OPENAI_API_KEY", "")
-        except Exception:
-            api_key = ""
-        if not api_key:
-            st.error("AI voice needs OPENAI_API_KEY in Streamlit app settings → Secrets. Add it there; never put it in app.py or GitHub.")
-        else:
-            speech_text = str(content).strip()
-            if not speech_text:
-                st.info("There is no text to speak.")
-            else:
-                # The Speech API accepts up to 4096 characters per request.
-                if len(speech_text) > 4000:
-                    speech_text = speech_text[:3990].rsplit(" ", 1)[0] + "…"
-                    st.caption("Speaking the first part of this long reply.")
-                try:
-                    with st.spinner("J.A.N.E. is preparing your AI voice…"):
-                        tts_client = OpenAI(api_key=api_key)
-                        audio_response = tts_client.audio.speech.create(
-                            model="gpt-4o-mini-tts",
-                            voice="cedar",
-                            input=speech_text,
-                            instructions=(
-                                "Use an original, natural adult masculine voice for a fictional AI assistant. "
-                                "Speak in clear English with a calm, smooth, intelligent, quietly confident, "
-                                "warm and subtly witty delivery. Use measured pacing, relaxed phrasing, "
-                                "understated charm, crisp articulation, and natural conversational intonation. "
-                                "Avoid exaggerated acting, theatrical drama, or imitating any specific real actor or character."
-                            ),
-                            response_format="mp3",
-                            speed=0.94,
-                        )
-                    st.session_state[audio_state_key] = audio_response.content
-                    st.session_state[text_state_key] = speech_text
-                except Exception as error:
-                    st.error(f"AI voice generation failed ({type(error).__name__}). Check your OpenAI API access, billing/usage limits, and Streamlit logs.")
-
-    audio_bytes = st.session_state.get(audio_state_key)
-    if audio_bytes:
-        st.audio(audio_bytes, format="audio/mp3", start_time=0)
-        st.caption("AI-generated J.A.N.E. voice · Use the audio player's pause/stop controls. The voice is original and not a human actor's voice.")
-
+    text_payload = json.dumps(str(content or "").strip()[:12000], ensure_ascii=False).replace("</", "<\\/")
+    speed = float(st.session_state.get("voice_speed", 1.0))
+    components.html(f'''<div style="font-family:Arial,sans-serif;display:flex;gap:8px;align-items:center;background:transparent">
+<button id="speak-{safe_key}" style="background:#a10f2b;color:white;border:0;border-radius:18px;padding:8px 13px;cursor:pointer">🔊 Read aloud</button>
+<button id="stop-{safe_key}" style="background:#171217;color:#eee;border:1px solid #49303b;border-radius:18px;padding:8px 13px;cursor:pointer">■ Stop</button>
+<span id="voice-status-{safe_key}" style="font-size:12px;color:#aaa5b2"></span></div>
+<script>
+(()=>{{
+ const text={text_payload};
+ const rate={speed};
+ const speak=document.getElementById("speak-{safe_key}");
+ const stop=document.getElementById("stop-{safe_key}");
+ const status=document.getElementById("voice-status-{safe_key}");
+ speak.addEventListener("click",()=>{{
+   if(!text){{status.textContent="Nothing to read.";return;}}
+   if(!("speechSynthesis" in window)||!("SpeechSynthesisUtterance" in window)){{status.textContent="Device/browser voice is not supported here.";return;}}
+   window.speechSynthesis.cancel();
+   const utterance=new SpeechSynthesisUtterance(text);
+   utterance.rate=Math.max(0.5,Math.min(3,rate));
+   utterance.onstart=()=>status.textContent="Speaking…";
+   utterance.onend=()=>status.textContent="Finished.";
+   utterance.onerror=()=>status.textContent="Voice playback failed. Try your device browser.";
+   window.speechSynthesis.speak(utterance);
+ }});
+ stop.addEventListener("click",()=>{{if("speechSynthesis" in window)window.speechSynthesis.cancel();status.textContent="Stopped.";}});
+}})();
+</script>''', height=52, scrolling=False)
 
 # -------------------- STYLING --------------------
 st.markdown(r'''<style>
@@ -319,6 +298,13 @@ if st.session_state.jane_entry_screen != "workspace":
 with st.sidebar:
     st.markdown("## 🔴 J.A.N.E.")
     st.caption("Your personal intelligence workspace")
+    with st.expander("⚙️ Settings", expanded=False):
+        st.slider(
+            "System voice speed", min_value=0.5, max_value=3.0,
+            value=float(st.session_state.get("voice_speed", 1.0)), step=0.1,
+            key="voice_speed", help="Playback speed for browser/device voiceover.",
+        )
+        st.caption("Uses your browser/device voice. Available voices depend on your system.")
     if st.session_state.get("auth_user"):
         st.caption("Signed in: " + st.session_state.auth_user.get("email", "Account"))
         if st.button("Sign out", use_container_width=True, key="jane_sign_out"):
@@ -481,9 +467,9 @@ if prompt:
                     answer = "The image model returned no image. Check model availability and API access in your Google AI Studio project, then try again."
             else:
                 mode_instructions = {
-                    "General": "Respond naturally, warmly, and directly. Do not force headings; use lists only when useful. Be accurate and honest.",
-                    "Adaptive": "Infer intent and adapt style and depth. Be friendly for casual chat, practical for practical questions, analytical when comparing options, and careful with research uncertainty.",
-                    "Thinker": "Consider relevant alternatives, assumptions, trade-offs, edge cases, and gaps. Be thorough when useful and concise for simple prompts. Explain useful reasoning without revealing private chain-of-thought.",
+                    "General": "Use natural, direct conversation. Keep simple answers short, avoid unnecessary headings and analysis, and expand only when asked or genuinely needed.",
+                    "Adaptive": "First identify the task type, then choose the most useful response style: conversational for chat, step-by-step for learning or troubleshooting, actionable for coding, criteria-based for comparisons, structured for planning, and careful about evidence and uncertainty for research. Ask a clarifying question only when essential.",
+                    "Thinker": "For complex questions, examine assumptions, alternatives, trade-offs, edge cases, likely failure points, and calculation consistency before answering. Separate established facts from inference, then give a clear conclusion and useful supporting rationale. Stay concise for simple questions and never reveal private chain-of-thought.",
                 }
                 creator_age = 13 + (datetime.now().year - 2026)
                 creator_identity = (
@@ -529,9 +515,9 @@ if prompt:
                         )
                     else:
                         mode_instructions = {
-                            "General": "Respond naturally, warmly, and directly. Do not force headings; use lists only when useful. Be accurate and honest.",
-                            "Adaptive": "Infer intent and adapt style and depth. Be friendly for casual chat, practical for practical questions, analytical when comparing options, and careful with uncertainty.",
-                            "Thinker": "Consider relevant alternatives, assumptions, trade-offs, edge cases, and gaps. Explain useful reasoning without revealing private chain-of-thought.",
+                            "General": "Use natural, direct conversation. Keep simple answers short and avoid unnecessary headings or analysis.",
+                            "Adaptive": "Identify the task type and adapt the format and depth: conversational, step-by-step, actionable, comparative, or research-focused as appropriate. Ask questions only when essential.",
+                            "Thinker": "For complex tasks, check assumptions, alternatives, trade-offs, edge cases, failure points, and calculations. Give a clear conclusion with useful rationale, without revealing private chain-of-thought. Stay concise for simple chat.",
                         }
                         creator_age = 13 + (datetime.now().year - 2026)
                         creator_identity = (
@@ -594,4 +580,4 @@ if prompt:
             render_copy_answer(answer, f"latest-{len(chat['messages'])}")
             render_speak_controls(answer, f"latest-{len(chat['messages'])}")
 
-st.markdown("<div class='jane-footer'>J.A.N.E. 0.9 · OCR · Gemini + OpenAI fallback · Guest data is temporary · Verify important decisions</div>", unsafe_allow_html=True)
+st.markdown("<div class='jane-footer'>J.A.N.E. 0.91 · OCR · Gemini + OpenAI fallback · Guest data is temporary · Verify important decisions</div>", unsafe_allow_html=True)
