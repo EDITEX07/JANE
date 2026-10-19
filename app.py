@@ -82,15 +82,17 @@ def intelligence_dialog():
     st.caption("Your choice stays active until you change it.")
 
 
-def render_message_content(message):
-    """Collapse long user prompts and let the user expand them on demand."""
+def render_message_content(message, key="message"):
+    """Render long user prompts as a seven-line preview with an expand option."""
     content = message["content"]
-    if message["role"] == "user" and len(content) > 320:
-        preview = content[:320].rstrip()
-        if len(content) > 320:
-            preview += "…"
-        st.markdown(preview)
-        with st.expander("Read more"):
+    if message["role"] == "user":
+        lines = content.splitlines() or [content]
+        if len(lines) > 7:
+            preview = "\n".join(lines[:7]).rstrip() + "…"
+            st.markdown(preview)
+            with st.expander("See more"):
+                st.markdown(content)
+        else:
             st.markdown(content)
     else:
         st.markdown(content)
@@ -102,8 +104,7 @@ def render_copy_answer(content, key):
     payload = json.dumps(content, ensure_ascii=False).replace("</", "<\/")
     components.html(
         f"""<div style="background:transparent;padding:2px 0 6px;">
-        <button id="copy-{key}" style="background:#171217;color:#e9e5eb;border:1px solid #49303b;"
-          border-radius:8px;padding:6px 11px;font-size:12px;cursor:pointer;>
+        <button id="copy-{key}" style="background:#171217;color:#e9e5eb;border:1px solid #49303b;border-radius:8px;padding:6px 11px;font-size:12px;cursor:pointer;">
           ⧉ Copy answer
         </button><span id="status-{key}" style="margin-left:9px;color:#aaa5b2;font:12px Arial,sans-serif;"></span>
         </div>
@@ -161,7 +162,7 @@ st.markdown(
 }
 
 .jane-header {
-    margin-top: 1.4rem;
+    margin-top: 1.4rem; /* clear the top bar without changing the messenger */
     background: transparent;
     border: 0;
     border-radius: 0;
@@ -194,6 +195,7 @@ st.markdown(
 }
 
 .welcome-symbol {
+    /* Text-only Tron-style J replaces the Gemini star; no image is used. */
     display: block;
     width: 100%;
     box-sizing: border-box;
@@ -227,13 +229,38 @@ st.markdown(
 }
 
 [data-testid="stChatMessage"] {
-    background: rgba(15, 12, 20, .94);
-    border: 1px solid var(--jane-border);
-    border-radius: 16px;
-    padding: 13px;
-    margin-bottom: 10px;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 8px 0;
+    margin-bottom: 12px;
 }
 
+/* User messages: red rounded chat bubbles. */
+[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) {
+    background: linear-gradient(135deg, #a91430 0%, #741126 100%);
+    border: 1px solid #ff465c;
+    border-radius: 20px 20px 5px 20px;
+    margin-left: auto;
+    max-width: 88%;
+    box-shadow: 0 4px 18px rgba(255, 35, 70, .12);
+}
+
+/* J.A.N.E.'s replies stay plain text: no bubble, fill, or border. */
+[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    margin-right: auto;
+    max-width: 100%;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+/* Native Streamlit chat input stays anchored at the bottom.
+   It starts compact (112px minimum) and can grow up to 156px for longer prompts,
+   while the textarea itself scrolls after roughly five lines. */
 [data-testid="stChatInput"] {
     position: relative !important;
     background: linear-gradient(
@@ -255,6 +282,7 @@ st.markdown(
     box-shadow: 0 5px 24px rgba(0, 0, 0, .45) !important;
 }
 
+/* Place the real, clickable mode-selector button visually inside the input. */
 div[class*="st-key-open_intelligence_dialog"] {
     position: fixed !important;
     z-index: 10002 !important;
@@ -307,6 +335,7 @@ div[class*="st-key-open_intelligence_dialog"] button:hover {
     opacity: 1 !important;
 }
 
+/* Style Streamlit's native submit control where the installed version exposes it. */
 [data-testid="stChatInput"] button {
     background: #ff465c !important;
     color: #ffffff !important;
@@ -319,6 +348,7 @@ div[class*="st-key-open_intelligence_dialog"] button:hover {
     color: #ffffff !important;
 }
 
+/* Keep the chat content from being obscured by the bottom composer. */
 .block-container {
     padding-bottom: 120px !important;
 }
@@ -387,7 +417,19 @@ p, label, li {
 
     [data-testid="stChatMessage"] {
         padding: 10px;
-        border-radius: 13px;
+        border-radius: 15px;
+    }
+
+    [data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) {
+        max-width: 94%;
+    }
+
+    [data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {
+        max-width: 100%;
+        background: transparent !important;
+        border: none !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
     }
 
     [data-testid="stChatInput"] {
@@ -601,6 +643,8 @@ if st.session_state.uploaded_files:
         + ", ".join(st.session_state.uploaded_files.keys())
     )
 
+# This real Streamlit button is visually positioned inside the native composer
+# using CSS above. It remains clickable and opens the same mode-selection dialog.
 if st.button(
     f"◉ {st.session_state.intelligence_mode} ▾",
     key="open_intelligence_dialog",
@@ -608,6 +652,7 @@ if st.button(
 ):
     intelligence_dialog()
 
+# Streamlit's native chat input is anchored to the bottom of the page.
 submitted_prompt = st.chat_input(
     "Message J.A.N.E....",
     key="jane_chat_input",
@@ -673,10 +718,8 @@ if prompt:
 
             system_instruction = (
                 "You are J.A.N.E. (Judicious, Analytical, and Neuroresearch Engine), "
-                "a careful and helpful assistant. "
-                "If anyone asks who created you, who made you, or about your origins, "
-                "you must state: 'I was made by Vihaan Shirale, with the name he adopted as Editex07, and I was given APIs by Google Gemini.' "
-                "Never claim to have verified information or performed actions you have not completed. Uploaded "
+                "a careful and helpful assistant. Never claim to have verified "
+                "information or performed actions you have not completed. Uploaded "
                 "files are not automatically included in this request. "
                 f"Active intelligence mode: {mode}. "
                 f"Mode instructions: {mode_instructions[mode]}"
