@@ -20,11 +20,14 @@ if "chats" not in st.session_state:
     st.session_state.chats = {first_id: {"title": "New conversation", "messages": [], "created": datetime.now().strftime("%d %b %Y, %H:%M")}}
     st.session_state.current_chat = first_id
 for key, default in {
-    "profile_name": "Explorer", "api_enabled": False, "uploaded_files": {},
+    "profile_name": "Explorer", "api_enabled": True, "uploaded_files": {},
     "pending_prompt": None, "intelligence_mode": "Adaptive",
 }.items():
     if key not in st.session_state:
         st.session_state[key] = default
+
+# Live AI requests are always enabled; there is no user-facing on/off switch.
+st.session_state.api_enabled = True
 
 
 def make_chat():
@@ -229,7 +232,7 @@ with st.sidebar:
     with st.expander("👤 Account & preferences"):
         st.session_state.profile_name = st.text_input("Display name", value=st.session_state.profile_name, max_chars=40)
         st.caption("This is a session profile, not a login account.")
-        st.session_state.api_enabled = st.toggle("Enable live AI requests", value=st.session_state.api_enabled, help="Gemini API usage may be subject to quotas or charges. Disabled by default.")
+        st.caption("Live AI requests are always enabled. API usage may be subject to quotas or charges.")
         st.caption("AI-generated voice is available from the Speak button below each reply.")
     if st.button("🗑️ Clear current conversation", use_container_width=True):
         active_chat()["messages"] = []; active_chat()["title"] = "New conversation"; st.rerun()
@@ -296,9 +299,7 @@ if prompt:
         render_message_content({"role": "user", "content": prompt})
         if attachment_names: st.caption("📎 " + ", ".join(attachment_names))
     generated_image_bytes = None
-    if not st.session_state.api_enabled:
-        answer = "J.A.N.E. is in **UI development mode**. Open **Account & preferences** in the sidebar and enable live AI requests to use chat or image generation."
-    else:
+    if st.session_state.api_enabled:
         try:
             client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
             if image_mode == "Generate image":
