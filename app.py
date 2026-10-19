@@ -4,6 +4,7 @@ import json
 import uuid
 import urllib.request
 import urllib.error
+import urllib.parse
 from pathlib import Path
 from datetime import datetime
 
@@ -24,7 +25,7 @@ if "chats" not in st.session_state:
 for key, default in {
     "profile_name": "Explorer", "api_enabled": True, "uploaded_files": {},
     "pending_prompt": None, "intelligence_mode": "Adaptive",
-    "auth_user": None, "auth_token": None, "auth_mode": "signin", "voice_speed": 1.0,
+    "auth_user": None, "auth_token": None, "auth_refresh_token": None, "auth_mode": "signin", "voice_speed": 1.0,
 }.items():
     if key not in st.session_state:
         st.session_state[key] = default
@@ -272,30 +273,71 @@ def _firebase_project_id():
         return ""
 
 
+def _refresh_firebase_id_token():
+    """Refresh the short-lived Firebase ID token using the sign-in refresh token."""
+    refresh_token = st.session_state.get("auth_refresh_token")
+    if not refresh_token:
+        raise RuntimeError("Your sign-in session has expired. Sign out and sign in again, then retry chat history.")
+    try:
+        api_key = str(st.secrets.get("FIREBASE_API_KEY", "")).strip()
+    except Exception:
+        api_key = ""
+    if not api_key:
+        raise RuntimeError("Add FIREBASE_API_KEY to Streamlit Secrets.")
+    url = f"https://securetoken.googleapis.com/v1/token?key={api_key}"
+    body = urllib.parse.urlencode({"grant_type": "refresh_token", "refresh_token": refresh_token}).encode("utf-8")
+    request = urllib.request.Request(url, data=body, headers={"Content-Type": "application/x-www-form-urlencoded"}, method="POST")
+    try:
+        with urllib.request.urlopen(request, timeout=15) as response:
+            result = json.loads(response.read().decode("utf-8"))
+    except Exception:
+        raise RuntimeError("Your Firebase session could not be refreshed. Sign out and sign in again.") from None
+    st.session_state.auth_token = result.get("id_token")
+    if result.get("refresh_token"):
+        st.session_state.auth_refresh_token = result["refresh_token"]
+    if not st.session_state.auth_token:
+        raise RuntimeError("Firebase did not return a refreshed sign-in token. Sign in again.")
+    return st.session_state.auth_token
+
+
 def _firestore_request(method, path, payload=None):
-    """Call Firestore REST using the signed-in user's Firebase ID token."""
+    """Call Firestore REST using the user's Firebase ID token, refreshing once if expired."""
     user = st.session_state.get("auth_user") or {}
     token = st.session_state.get("auth_token")
     project_id = _firebase_project_id()
     if not user.get("uid") or not token:
-        raise RuntimeError("Sign in to use personal memory.")
+        raise RuntimeError("Sign in to use personal memory and saved chat history.")
     if not project_id:
-        raise RuntimeError("Add FIREBASE_PROJECT_ID to Streamlit Secrets to enable memory.")
+        raise RuntimeError("Add FIREBASE_PROJECT_ID to Streamlit Secrets to enable memory and chat history.")
     url = "https://firestore.googleapis.com/v1/" + path.lstrip("/")
     data = None if payload is None else json.dumps(payload, ensure_ascii=False).encode("utf-8")
-    request = urllib.request.Request(url, data=data, headers={
-        "Authorization": "Bearer " + token,
-        "Content-Type": "application/json; charset=utf-8",
-    }, method=method)
+
+    def send(current_token):
+        request = urllib.request.Request(url, data=data, headers={
+            "Authorization": "Bearer " + current_token,
+            "Content-Type": "application/json; charset=utf-8",
+        }, method=method)
+        return urllib.request.urlopen(request, timeout=12)
+
     try:
-        with urllib.request.urlopen(request, timeout=12) as response:
+        try:
+            response = send(token)
+        except urllib.error.HTTPError as exc:
+            if exc.code == 401:
+                token = _refresh_firebase_id_token()
+                response = send(token)
+            else:
+                raise
+        with response:
             raw = response.read().decode("utf-8")
             return json.loads(raw) if raw else {}
     except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace")[:500]
-        if exc.code in (401, 403):
-            raise RuntimeError("Firestore denied memory access. Check the user's sign-in token and Firestore security rules.") from None
-        raise RuntimeError(f"Firestore memory request failed ({exc.code}). {detail}") from None
+        detail = exc.read().decode("utf-8", errors="replace")[:350]
+        if exc.code == 401:
+            raise RuntimeError("Firebase rejected the sign-in token. Sign out and sign in again.") from None
+        if exc.code == 403:
+            raise RuntimeError("Firestore returned PERMISSION_DENIED. Check that FIREBASE_PROJECT_ID is the correct project and publish rules allowing /users/{userId}/chats/{chatId} and /users/{userId}/memories/{memoryId} only when request.auth.uid == userId. Firebase detail: " + detail) from None
+        raise RuntimeError(f"Firestore request failed ({exc.code}). {detail}") from None
 
 
 def _memory_collection_path():
@@ -545,6 +587,7 @@ if st.session_state.jane_entry_screen != "workspace":
                         result = firebase_auth_request("signUp" if is_signup else "signInWithPassword", email, password)
                     st.session_state.auth_user = {"email": result.get("email", email.strip()), "uid": result.get("localId", "")}
                     st.session_state.auth_token = result.get("idToken")
+                    st.session_state.auth_refresh_token = result.get("refreshToken")
                     st.session_state.profile_name = email.strip().split("@")[0][:40] or "User"
                     st.session_state.jane_entry_screen = "workspace"
                     st.rerun()
@@ -631,6 +674,7 @@ with st.sidebar:
         if st.button("Sign out", use_container_width=True, key="jane_sign_out"):
             st.session_state.auth_user = None
             st.session_state.auth_token = None
+            st.session_state.auth_refresh_token = None
             st.session_state.jane_entry_screen = "welcome"
             st.rerun()
     if st.button("＋  New chat", use_container_width=True):
