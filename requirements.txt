@@ -3,3 +3,5 @@ streamlit
 pandas
 google-genai
 websockets>=13.0,<15.0
+openpyxl
+openai
