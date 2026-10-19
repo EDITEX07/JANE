@@ -229,10 +229,10 @@ st.markdown(
 }
 
 [data-testid="stChatMessage"] {
-    background: transparent;
-    border: none;
-    border-radius: 0;
-    padding: 8px 0;
+    background: rgba(15, 12, 20, .94);
+    border: 1px solid var(--jane-border);
+    border-radius: 18px;
+    padding: 13px;
     margin-bottom: 12px;
 }
 
@@ -246,7 +246,7 @@ st.markdown(
     box-shadow: 0 4px 18px rgba(255, 35, 70, .12);
 }
 
-/* J.A.N.E.'s replies stay plain text: no bubble, fill, or border. */
+/* J.A.N.E. replies: clean ChatGPT-style text, no bubble or rectangle. */
 [data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {
     background: transparent !important;
     border: none !important;
@@ -254,8 +254,14 @@ st.markdown(
     box-shadow: none !important;
     margin-right: auto;
     max-width: 100%;
-    padding-left: 0;
-    padding-right: 0;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+
+/* Keep the safe boxed-J avatar glyph readable; no custom font dependency. */
+[data-testid="stChatMessage"] [data-testid="chatAvatarIcon-assistant"] {
+    color: #ff465c !important;
+    filter: drop-shadow(0 0 5px rgba(255, 36, 61, .45));
 }
 
 /* Native Streamlit chat input stays anchored at the bottom.
@@ -426,10 +432,6 @@ p, label, li {
 
     [data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {
         max-width: 100%;
-        background: transparent !important;
-        border: none !important;
-        border-radius: 0 !important;
-        box-shadow: none !important;
     }
 
     [data-testid="stChatInput"] {
@@ -629,7 +631,7 @@ if not chat["messages"]:
                 st.rerun()
 
 for message_index, message in enumerate(chat["messages"]):
-    with st.chat_message(message["role"]):
+    with st.chat_message(message["role"], avatar="🅹" if message["role"] == "assistant" else None):
         render_message_content(message)
         if message["role"] == "assistant":
             render_copy_answer(message["content"], f"history-{message_index}")
@@ -784,7 +786,7 @@ if prompt:
         }
     )
 
-    with st.chat_message("assistant"):
+    with st.chat_message("assistant", avatar="🅹"):
         st.markdown(answer)
         render_copy_answer(answer, f"latest-{len(chat['messages'])}")
 
