@@ -228,40 +228,94 @@ st.markdown(
     max-width: 540px;
 }
 
-/* Chat bubbles: style the message content with compatibility fallbacks. */
+/* CHAT MESSAGE BUBBLES
+   Streamlit identifies each message with stChatMessage and its avatar icon.
+   Keep the avatar in the DOM as a role marker, but hide it visually. */
 [data-testid="stChatMessage"] {
-    display: flex !important; align-items: flex-start !important;
-    background: transparent !important; border: 0 !important; border-radius: 0 !important;
-    box-shadow: none !important; padding: 0 !important; margin: 0 0 14px !important;
-    width: 100% !important; max-width: 100% !important; box-sizing: border-box !important;
+    display: flex !important;
+    align-items: flex-start !important;
+    gap: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 0 14px !important;
 }
+
+/* Hide both user and assistant avatars without removing the role marker. */
 [data-testid="stChatMessage"] [data-testid^="chatAvatarIcon"],
-[data-testid="stChatMessage"] [data-testid*="Avatar"] { display: none !important; }
+[data-testid="stChatMessage"] [data-testid*="Avatar"] {
+    display: none !important;
+}
+
+/* The content column must shrink to the bubble's text width rather than fill the row. */
 [data-testid="stChatMessage"] [data-testid="stChatMessageContent"],
+[data-testid="stChatMessage"] [data-testid="stChatMessageContent"] > div,
 [data-testid="stChatMessage"] .stChatMessageContent {
-    box-sizing: border-box !important; width: fit-content !important; min-width: 0 !important;
+    box-sizing: border-box !important;
+    flex: 0 1 auto !important;
+    min-width: 0 !important;
+    width: auto !important;
     overflow-wrap: anywhere !important;
 }
-/* USER: dim red rounded rectangle aligned right. */
-[data-testid="stChatMessage"]:has([data-testid*="user"]) { justify-content: flex-end !important; }
-[data-testid="stChatMessage"]:has([data-testid*="user"]) [data-testid="stChatMessageContent"],
-[data-testid="stChatMessage"]:has([data-testid*="user"]) .stChatMessageContent {
-    background: #792033 !important; color: #fff !important; border: 1px solid #b9344f !important;
-    border-radius: 20px 20px 5px 20px !important; padding: 10px 15px !important;
-    margin: 0 0 0 auto !important; width: fit-content !important; max-width: min(88%, 760px) !important;
-    box-shadow: 0 3px 12px rgba(255,35,70,.10) !important;
+
+/* USER: dim red filled bubble aligned to the right. Use the exact Streamlit avatar marker. */
+[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) {
+    justify-content: flex-end !important;
 }
-[data-testid="stChatMessage"]:has([data-testid*="user"]) [data-testid="stMarkdownContainer"] { color: #fff !important; }
-/* J.A.N.E.: grey rectangle with red outline aligned left. */
-[data-testid="stChatMessage"]:has([data-testid*="assistant"]) { justify-content: flex-start !important; }
-[data-testid="stChatMessage"]:has([data-testid*="assistant"]) [data-testid="stChatMessageContent"],
-[data-testid="stChatMessage"]:has([data-testid*="assistant"]) .stChatMessageContent {
-    background: #29292f !important; color: #f5f2f6 !important; border: 1px solid #b9344f !important;
-    border-radius: 20px 20px 20px 5px !important; padding: 12px 15px !important;
-    margin: 0 auto 0 0 !important; width: fit-content !important; max-width: 96% !important;
-    box-shadow: 0 3px 14px rgba(0,0,0,.18) !important;
+[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) [data-testid="stChatMessageContent"],
+[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) .stChatMessageContent {
+    display: block !important;
+    flex: 0 1 auto !important;
+    width: fit-content !important;
+    min-width: 0 !important;
+    max-width: min(88%, 760px) !important;
+    margin: 0 0 0 auto !important;
+    padding: 10px 15px !important;
+    color: #ffffff !important;
+    background: #792033 !important;
+    border: 1px solid #b9344f !important;
+    border-radius: 20px 20px 5px 20px !important;
+    box-shadow: 0 3px 12px rgba(255, 35, 70, .10) !important;
+    overflow-wrap: anywhere !important;
 }
-[data-testid="stChatMessage"]:has([data-testid*="assistant"]) [data-testid="stMarkdownContainer"] { color: #f5f2f6 !important; }
+
+/* ASSISTANT: grey bubble with a red outline aligned to the left. */
+[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {
+    justify-content: flex-start !important;
+}
+[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) [data-testid="stChatMessageContent"],
+[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) .stChatMessageContent {
+    display: block !important;
+    flex: 0 1 auto !important;
+    width: fit-content !important;
+    min-width: 0 !important;
+    max-width: 96% !important;
+    margin: 0 auto 0 0 !important;
+    padding: 12px 15px !important;
+    color: #f5f2f6 !important;
+    background: #29292f !important;
+    border: 1px solid #b9344f !important;
+    border-radius: 20px 20px 20px 5px !important;
+    box-shadow: 0 3px 14px rgba(0, 0, 0, .18) !important;
+    overflow-wrap: anywhere !important;
+}
+
+/* Keep Markdown text readable and prevent transparent child blocks from hiding bubble fills. */
+[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] {
+    color: inherit !important;
+    overflow-wrap: anywhere !important;
+}
+[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p:first-child {
+    margin-top: 0 !important;
+}
+[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p:last-child {
+    margin-bottom: 0 !important;
+}
 
 /* Native Streamlit chat input stays anchored at the bottom.
    It starts compact (112px minimum) and can grow up to 156px for longer prompts,
