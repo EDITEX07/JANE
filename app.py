@@ -205,7 +205,12 @@ html,body,[class*="css"]{font-family:Inter,system-ui,sans-serif}
 /* Assistant replies stay unboxed. */
 [data-testid="stChatMessage"]:has(.jane-assistant-marker){justify-content:flex-start!important}
 [data-testid="stChatMessage"]:has(.jane-assistant-marker) [data-testid="stChatMessageContent"],
-[data-testid="stChatMessage"]:has(.jane-assistant-marker) .stChatMessageContent{display:block!important;flex:1 1 auto!important;width:100%!important;max-width:100%!important;margin:0 auto 0 0!important;padding:4px 0 8px!important;color:#f5f2f6!important;background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;overflow-wrap:anywhere!important}
+[data-testid="stChatMessage"]:has(.jane-assistant-marker) .stChatMessageContent{display:block!important;flex:1 1 auto!important;width:100%!important;max-width:100%!important;margin:0 auto 0 0!important;padding:4px 0 8px!important;color:#f5f2f6!important;background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;overflow-wrap:anywhere!important;text-align:left!important}
+[data-testid="stChatMessage"]:has(.jane-assistant-marker) [data-testid="stMarkdownContainer"],
+[data-testid="stChatMessage"]:has(.jane-assistant-marker) [data-testid="stMarkdownContainer"] *{text-align:left!important}
+[data-testid="stChatMessage"]:has(.jane-assistant-marker) [data-testid="stMarkdownContainer"] ul,
+[data-testid="stChatMessage"]:has(.jane-assistant-marker) [data-testid="stMarkdownContainer"] ol{padding-left:1.5rem!important;margin-left:0!important}
+[data-testid="stChatMessage"]:has(.jane-assistant-marker) [data-testid="stMarkdownContainer"] table{margin-left:0!important;margin-right:auto!important}
 [data-testid="stChatMessage"]:has(.jane-user-marker) [data-testid="stMarkdownContainer"]{transform:none!important;margin:0!important;padding:0!important}
 [data-testid="stChatMessage"]:has(.jane-user-marker) [data-testid="stChatMessageContent"]>div{min-width:0!important;max-width:100%!important}
 [data-testid="stChatMessage"]:has(.jane-user-marker) [data-testid="stMarkdownContainer"] p{margin-top:0!important;margin-bottom:0!important;line-height:1.5!important}
