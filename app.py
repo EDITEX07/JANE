@@ -21,7 +21,7 @@ if "chats" not in st.session_state:
     st.session_state.current_chat = first_id
 for key, default in {
     "profile_name": "Explorer", "api_enabled": False, "uploaded_files": {},
-    "pending_prompt": None, "intelligence_mode": "Adaptive",
+    "pending_prompt": None, "intelligence_mode": "Adaptive", "auto_speak": False,
 }.items():
     if key not in st.session_state:
         st.session_state[key] = default
@@ -86,56 +86,18 @@ button.addEventListener("click",async()=>{{try{{await navigator.clipboard.writeT
 </script>''', height=42, scrolling=False)
 
 
-def render_speak_controls(content, key):
-    """Generate AI speech on demand; never use browser/device speech synthesis."""
-    # Keep API keys server-side in Streamlit Secrets; never place them in HTML/JS.
-    safe_key = "voice_" + "".join(ch if ch.isalnum() else "_" for ch in str(key))
-    audio_state_key = f"generated_audio_{safe_key}"
-    text_state_key = f"generated_audio_text_{safe_key}"
-
-    # Speech is generated only after the user presses Speak.
-    if st.button("🔊 Speak with J.A.N.E. voice", key=f"speak_button_{safe_key}"):
-        try:
-            api_key = st.secrets.get("OPENAI_API_KEY", "")
-        except Exception:
-            api_key = ""
-        if not api_key:
-            st.error("AI voice needs OPENAI_API_KEY in Streamlit app settings → Secrets. Add it there; never put it in app.py or GitHub.")
-        else:
-            speech_text = str(content).strip()
-            if not speech_text:
-                st.info("There is no text to speak.")
-            else:
-                # The Speech API accepts up to 4096 characters per request.
-                if len(speech_text) > 4000:
-                    speech_text = speech_text[:3990].rsplit(" ", 1)[0] + "…"
-                    st.caption("Speaking the first part of this long reply.")
-                try:
-                    with st.spinner("J.A.N.E. is preparing your AI voice…"):
-                        tts_client = OpenAI(api_key=api_key)
-                        audio_response = tts_client.audio.speech.create(
-                            model="gpt-4o-mini-tts",
-                            voice="cedar",
-                            input=speech_text,
-                            instructions=(
-                                "Use an original, natural adult masculine voice for a fictional AI assistant. "
-                                "Speak in clear English with a calm, smooth, intelligent, quietly confident, "
-                                "warm and subtly witty delivery. Use measured pacing, relaxed phrasing, "
-                                "understated charm, crisp articulation, and natural conversational intonation. "
-                                "Avoid exaggerated acting, theatrical drama, or imitating any specific real actor or character."
-                            ),
-                            response_format="mp3",
-                            speed=0.94,
-                        )
-                    st.session_state[audio_state_key] = audio_response.content
-                    st.session_state[text_state_key] = speech_text
-                except Exception as error:
-                    st.error(f"AI voice generation failed ({type(error).__name__}). Check your OpenAI API access, billing/usage limits, and Streamlit logs.")
-
-    audio_bytes = st.session_state.get(audio_state_key)
-    if audio_bytes:
-        st.audio(audio_bytes, format="audio/mp3", start_time=0)
-        st.caption("AI-generated J.A.N.E. voice · Use the audio player's pause/stop controls. The voice is original and not a human actor's voice.")
+def render_speak_controls(content, key, auto_speak=False):
+    """Browser text-to-speech; voice availability depends on device/browser."""
+    payload = json.dumps(content, ensure_ascii=False).replace("</", "<\\/")
+    components.html(f'''<div style="display:flex;gap:8px;align-items:center;padding:2px 0 10px;flex-wrap:wrap">
+<button id="speak-{key}" style="background:#24131c;color:#fff;border:1px solid #b9344f;border-radius:9px;padding:6px 11px;font-size:12px;cursor:pointer">🔊 Speak</button>
+<button id="stop-{key}" style="background:#171217;color:#d8d1d9;border:1px solid #49303b;border-radius:9px;padding:6px 11px;font-size:12px;cursor:pointer">■ Stop</button>
+<span id="speech-status-{key}" style="color:#aaa5b2;font:12px Arial,sans-serif"></span></div>
+<script>(()=>{{const text={payload};const autoSpeak={str(auto_speak).lower()};const speak=document.getElementById("speak-{key}");const stop=document.getElementById("stop-{key}");const status=document.getElementById("speech-status-{key}");
+function startSpeech(){{if(!( "speechSynthesis" in window)){{status.textContent="Speech is not supported by this browser.";return;}}window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.rate=0.92;u.pitch=0.92;u.volume=1;const voices=window.speechSynthesis.getVoices();const voice=voices.find(v=>/^en/i.test(v.lang)&&/male|daniel|david|guy|aaron|james|tom|alex|mark/i.test(v.name))||voices.find(v=>/^en/i.test(v.lang)&&/natural|premium|enhanced/i.test(v.name))||voices.find(v=>/^en-IN/i.test(v.lang))||voices.find(v=>/^en/i.test(v.lang));if(voice)u.voice=voice;u.onstart=()=>status.textContent="Speaking…";u.onend=()=>status.textContent="Finished";u.onerror=()=>status.textContent="Speech could not start; tap Speak if autoplay was blocked.";window.speechSynthesis.speak(u);}}
+speak.addEventListener("click",startSpeech);
+stop.addEventListener("click",()=>{{if("speechSynthesis" in window)window.speechSynthesis.cancel();status.textContent="Stopped";}});
+if(autoSpeak){{status.textContent="Starting voice…";setTimeout(startSpeech,250);}}}})();</script>''', height=54, scrolling=False)
 
 
 # -------------------- STYLING --------------------
@@ -230,7 +192,7 @@ with st.sidebar:
         st.session_state.profile_name = st.text_input("Display name", value=st.session_state.profile_name, max_chars=40)
         st.caption("This is a session profile, not a login account.")
         st.session_state.api_enabled = st.toggle("Enable live AI requests", value=st.session_state.api_enabled, help="Gemini API usage may be subject to quotas or charges. Disabled by default.")
-        st.caption("AI-generated voice is available from the Speak button below each reply.")
+        st.session_state.auto_speak = st.toggle("Automatically speak new replies", value=st.session_state.auto_speak, help="Uses your browser/device text-to-speech voice. Browser autoplay rules may require tapping Speak once.")
     if st.button("🗑️ Clear current conversation", use_container_width=True):
         active_chat()["messages"] = []; active_chat()["title"] = "New conversation"; st.rerun()
 
@@ -413,6 +375,6 @@ if prompt:
             st.download_button("⬇ Download image", data=generated_image_bytes, file_name="jane_generated_image.png", mime="image/png", key=f"download_latest_image_{len(chat['messages'])}")
         else:
             render_copy_answer(answer, f"latest-{len(chat['messages'])}")
-            render_speak_controls(answer, f"latest-{len(chat['messages'])}")
+            render_speak_controls(answer, f"latest-{len(chat['messages'])}", auto_speak=st.session_state.auto_speak)
 
 st.markdown("<div class='jane-footer'>J.A.N.E. 0.5 · Gemini + OpenAI fallback · Session data is temporary · Verify important decisions</div>", unsafe_allow_html=True)
