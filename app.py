@@ -305,6 +305,17 @@ def _memory_collection_path():
     return f"projects/{_firebase_project_id()}/databases/(default)/documents/users/{uid}/memories"
 
 
+def _chat_collection_path():
+    uid = (st.session_state.get("auth_user") or {}).get("uid", "")
+    if not uid or "/" in uid:
+        raise RuntimeError("A valid signed-in user is required.")
+    return f"projects/{_firebase_project_id()}/databases/(default)/documents/users/{uid}/chats"
+
+
+def _firestore_string(value):
+    return {"stringValue": str(value)}
+
+
 def _decode_firestore_value(value):
     if "stringValue" in value: return value["stringValue"]
     if "booleanValue" in value: return value["booleanValue"]
@@ -313,6 +324,73 @@ def _decode_firestore_value(value):
         except Exception: return value["integerValue"]
     if "timestampValue" in value: return value["timestampValue"]
     return None
+
+
+def save_chat_history(chat_id, chat_data):
+    """Persist a user's conversation as a JSON string in their own Firestore chat document."""
+    if not st.session_state.get("auth_user"):
+        return False
+    if not chat_id or "/" in str(chat_id) or ".." in str(chat_id):
+        raise RuntimeError("Invalid chat ID.")
+    # Binary image data and uploaded file bytes are deliberately not stored in chat history.
+    safe_messages = []
+    for message in chat_data.get("messages", []):
+        safe = {k: v for k, v in message.items() if k not in ("image_bytes",)}
+        if isinstance(safe.get("attachments"), list):
+            safe["attachments"] = [str(name) for name in safe["attachments"]]
+        safe_messages.append(safe)
+    now = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+    payload = {
+        "id": str(chat_id),
+        "title": str(chat_data.get("title", "New conversation"))[:160],
+        "created": str(chat_data.get("created", now)),
+        "updatedAt": now,
+        "messages": safe_messages,
+    }
+    document = {"fields": {
+        "payload": {"stringValue": json.dumps(payload, ensure_ascii=False)},
+        "title": {"stringValue": payload["title"]},
+        "created": {"stringValue": payload["created"]},
+        "updatedAt": {"timestampValue": now},
+    }}
+    path = _chat_collection_path() + "/" + str(chat_id)
+    try:
+        _firestore_request("PATCH", path + "?updateMask.fieldPaths=payload&updateMask.fieldPaths=title&updateMask.fieldPaths=created&updateMask.fieldPaths=updatedAt", document)
+    except RuntimeError as exc:
+        if "(404)" not in str(exc):
+            raise
+        _firestore_request("POST", _chat_collection_path() + "?documentId=" + str(chat_id), document)
+    return True
+
+
+def load_chat_history():
+    """Load persisted conversations for the currently authenticated account."""
+    if not st.session_state.get("auth_user"):
+        return {}
+    result = _firestore_request("GET", _chat_collection_path())
+    chats = {}
+    for document in result.get("documents", []):
+        fields = {k: _decode_firestore_value(v) for k, v in document.get("fields", {}).items()}
+        try:
+            payload = json.loads(fields.get("payload", "{}"))
+            chat_id = str(payload.get("id") or document.get("name", "").rsplit("/", 1)[-1])
+            messages = payload.get("messages", [])
+            if not isinstance(messages, list):
+                messages = []
+            chats[chat_id] = {
+                "title": str(payload.get("title", "New conversation")),
+                "created": str(payload.get("created", "")),
+                "messages": messages,
+            }
+        except (TypeError, ValueError):
+            continue
+    return chats
+
+
+def delete_chat_history(chat_id):
+    if not chat_id or "/" in str(chat_id) or ".." in str(chat_id):
+        raise RuntimeError("Invalid chat ID.")
+    _firestore_request("DELETE", _chat_collection_path() + "/" + str(chat_id))
 
 
 def load_memories():
@@ -400,6 +478,19 @@ if "auth_token" not in st.session_state:
 
 if st.session_state.get("auth_user"):
     st.session_state.jane_entry_screen = "workspace"
+    active_uid = st.session_state.auth_user.get("uid", "")
+    if active_uid and st.session_state.get("chat_history_loaded_uid") != active_uid:
+        try:
+            saved_chats = load_chat_history()
+            if saved_chats:
+                # Keep current in-session chats while merging the account's saved history.
+                saved_chats.update(st.session_state.chats)
+                st.session_state.chats = saved_chats
+                st.session_state.current_chat = next(reversed(saved_chats))
+            st.session_state.chat_history_loaded_uid = active_uid
+            st.session_state.chat_history_error = ""
+        except Exception as exc:
+            st.session_state.chat_history_error = str(exc)
 
 if st.session_state.jane_entry_screen != "workspace":
     st.markdown(r'''<style>
@@ -504,6 +595,39 @@ with st.sidebar:
                                 st.error(str(exc))
             except Exception as exc:
                 st.warning("Memory is not connected yet: " + str(exc))
+        with st.expander("💬 Saved chat history", expanded=False):
+            st.caption("Your signed-in conversations sync through Firestore. Guest chats remain temporary.")
+            if st.session_state.get("chat_history_error"):
+                st.warning("Chat history could not load: " + st.session_state.chat_history_error)
+            if st.button("↻ Refresh chat history", key="refresh_chat_history", use_container_width=True):
+                try:
+                    saved_chats = load_chat_history()
+                    st.session_state.chats.update(saved_chats)
+                    st.session_state.chat_history_error = ""
+                    st.rerun()
+                except Exception as exc:
+                    st.session_state.chat_history_error = str(exc)
+                    st.rerun()
+            for saved_id, saved_data in reversed(list(st.session_state.chats.items())):
+                if not saved_data.get("messages"):
+                    continue
+                with st.container(border=True):
+                    st.write(saved_data.get("title", "New conversation"))
+                    a, b = st.columns(2)
+                    with a:
+                        if st.button("Open", key="open_saved_chat_" + saved_id, use_container_width=True):
+                            st.session_state.current_chat = saved_id
+                            st.rerun()
+                    with b:
+                        if st.button("Delete", key="delete_saved_chat_" + saved_id, use_container_width=True):
+                            try:
+                                delete_chat_history(saved_id)
+                                st.session_state.chats.pop(saved_id, None)
+                                if st.session_state.current_chat == saved_id:
+                                    make_chat()
+                                st.rerun()
+                            except Exception as exc:
+                                st.error("Could not delete saved chat: " + str(exc))
         if st.button("Sign out", use_container_width=True, key="jane_sign_out"):
             st.session_state.auth_user = None
             st.session_state.auth_token = None
@@ -642,6 +766,10 @@ if prompt:
             notice = "I couldn't save that memory: " + str(exc)
         st.session_state.chats[st.session_state.current_chat]["messages"].append({"role": "user", "content": prompt})
         st.session_state.chats[st.session_state.current_chat]["messages"].append({"role": "assistant", "content": notice})
+        try:
+            save_chat_history(st.session_state.current_chat, st.session_state.chats[st.session_state.current_chat])
+        except Exception as exc:
+            st.session_state.chat_history_error = str(exc)
         st.rerun()
     attachment_names = list(st.session_state.uploaded_files.keys())
     mode = st.session_state.intelligence_mode
@@ -782,6 +910,13 @@ if prompt:
         assistant_message["image_bytes"] = generated_image_bytes
         assistant_message["image_filename"] = "jane_generated_image.png"
     chat["messages"].append(assistant_message)
+    # Persist full text conversation for signed-in users; Guest chat history stays session-only.
+    if st.session_state.get("auth_user"):
+        try:
+            save_chat_history(st.session_state.current_chat, chat)
+            st.session_state.chat_history_error = ""
+        except Exception as exc:
+            st.session_state.chat_history_error = str(exc)
     # Signed-in users get automatic memory formation. Guest memory is deliberately disabled.
     if st.session_state.get("auth_user") and not generated_image_bytes:
         candidates = extract_memories(prompt, answer)
