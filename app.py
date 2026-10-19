@@ -228,34 +228,55 @@ st.markdown(
     max-width: 540px;
 }
 
+/* Base message row: transparent, compact, and without avatar columns. */
 [data-testid="stChatMessage"] {
-    background: rgba(15, 12, 20, .94);
-    border: 1px solid var(--jane-border);
-    border-radius: 18px;
-    padding: 13px;
-    margin-bottom: 12px;
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 0 14px !important;
+    width: 100% !important;
+    max-width: 100% !important;
 }
 
-/* User messages: red rounded chat bubbles. */
+/* Hide the human/robot avatar visuals but keep the role markers available
+   for the role-specific bubble selectors below. */
+[data-testid="stChatMessage"] [data-testid^="chatAvatarIcon"],
+[data-testid="stChatMessage"] [data-testid*="Avatar"] {
+    display: none !important;
+}
+
+/* User prompts: compact red bubbles pushed to the right edge. */
+[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]),
 [data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) {
-    background: linear-gradient(135deg, #a91430 0%, #741126 100%);
-    border: 1px solid #ff465c;
-    border-radius: 20px 20px 5px 20px;
-    margin-left: auto;
-    max-width: 88%;
-    box-shadow: 0 4px 18px rgba(255, 35, 70, .12);
+    display: flex !important;
+    justify-content: flex-end !important;
 }
 
-/* J.A.N.E. replies: clean ChatGPT-style text, no bubble or rectangle. */
+[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) > div:last-child {
+    background: linear-gradient(135deg, #a91430 0%, #741126 100%) !important;
+    border: 1px solid #ff465c !important;
+    border-radius: 20px 20px 5px 20px !important;
+    padding: 10px 15px !important;
+    margin-left: auto !important;
+    margin-right: 0 !important;
+    width: fit-content !important;
+    max-width: min(88%, 760px) !important;
+    box-shadow: 0 4px 18px rgba(255, 35, 70, .12) !important;
+    overflow-wrap: anywhere !important;
+}
+
+/* Assistant responses remain plain text without a message box. */
 [data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {
+    display: block !important;
     background: transparent !important;
     border: none !important;
     border-radius: 0 !important;
     box-shadow: none !important;
-    margin-right: auto;
-    max-width: 100%;
-    padding-left: 0 !important;
-    padding-right: 0 !important;
+    margin-right: auto !important;
+    max-width: 100% !important;
+    padding: 0 !important;
 }
 
 
@@ -421,8 +442,9 @@ p, label, li {
         border-radius: 15px;
     }
 
-    [data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) {
-        max-width: 94%;
+    [data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) > div:last-child {
+        max-width: 94% !important;
+        padding: 9px 12px !important;
     }
 
     [data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {
@@ -626,7 +648,7 @@ if not chat["messages"]:
                 st.rerun()
 
 for message_index, message in enumerate(chat["messages"]):
-    with st.chat_message(message["role"]):
+    with st.chat_message(message["role"], avatar=None):
         render_message_content(message)
         if message["role"] == "assistant":
             render_copy_answer(message["content"], f"history-{message_index}")
@@ -679,7 +701,7 @@ if prompt:
     if chat["title"] == "New conversation":
         chat["title"] = prompt.strip().replace("\n", " ")[:30] or "New conversation"
 
-    with st.chat_message("user"):
+    with st.chat_message("user", avatar=None):
         render_message_content({"role": "user", "content": prompt})
         if attachment_names:
             st.caption("📎 " + ", ".join(attachment_names))
@@ -781,7 +803,7 @@ if prompt:
         }
     )
 
-    with st.chat_message("assistant"):
+    with st.chat_message("assistant", avatar=None):
         st.markdown(answer)
         render_copy_answer(answer, f"latest-{len(chat['messages'])}")
 
