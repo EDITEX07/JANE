@@ -120,29 +120,18 @@ html,body,[class*="css"]{font-family:Inter,system-ui,sans-serif}
 [data-testid="stChatMessage"]{display:flex!important;align-items:flex-start!important;gap:0!important;width:100%!important;max-width:100%!important;box-sizing:border-box!important;background:transparent!important;border:0!important;padding:0!important;margin:0 0 14px!important}
 [data-testid="stChatMessage"] [data-testid^="chatAvatarIcon"],[data-testid="stChatMessage"] [data-testid*="Avatar"]{display:none!important}
 [data-testid="stChatMessage"] [data-testid="stChatMessageContent"],[data-testid="stChatMessage"] [data-testid="stChatMessageContent"]>div,[data-testid="stChatMessage"] .stChatMessageContent{box-sizing:border-box!important;flex:0 1 auto!important;min-width:0!important;width:auto!important;overflow-wrap:anywhere!important}
-/* Message layout. Streamlit's avatar test IDs differ between releases, so
-   style both the current avatar marker and the common accessible-name fallback. */
+/* Explicit role markers make styling independent of Streamlit avatar test IDs. */
+.jane-user-marker,.jane-assistant-marker{display:none!important}
 [data-testid="stChatMessage"]{min-width:0!important}
-[data-testid="stChatMessage"]:has([data-testid*="chatAvatarIcon-user"]),
-[data-testid="stChatMessage"]:has([aria-label="user"]),
-[data-testid="stChatMessage"]:has(img[alt="user"]){justify-content:flex-end!important}
-[data-testid="stChatMessage"]:has([data-testid*="chatAvatarIcon-user"]) [data-testid="stChatMessageContent"],
-[data-testid="stChatMessage"]:has([aria-label="user"]) [data-testid="stChatMessageContent"],
-[data-testid="stChatMessage"]:has(img[alt="user"]) [data-testid="stChatMessageContent"],
-[data-testid="stChatMessage"]:has([data-testid*="chatAvatarIcon-user"]) .stChatMessageContent,
-[data-testid="stChatMessage"]:has([aria-label="user"]) .stChatMessageContent,
-[data-testid="stChatMessage"]:has(img[alt="user"]) .stChatMessageContent{display:block!important;flex:0 1 auto!important;width:fit-content!important;max-width:min(88%,760px)!important;margin:0 0 0 auto!important;padding:10px 15px!important;color:#fff!important;background:linear-gradient(115deg,rgba(112,16,38,.78),rgba(57,13,28,.88),rgba(135,22,45,.76),rgba(47,12,25,.88))!important;background-size:260% 260%!important;animation:userGradientFlow 8s ease infinite!important;border:1px solid rgba(255,70,92,.58)!important;border-radius:18px 18px 5px 18px!important;box-shadow:0 4px 22px rgba(255,35,70,.13),inset 0 1px rgba(255,255,255,.04)!important;overflow-wrap:anywhere!important}
+[data-testid="stChatMessage"]:has(.jane-user-marker){justify-content:flex-end!important}
+[data-testid="stChatMessage"]:has(.jane-user-marker) [data-testid="stChatMessageContent"],
+[data-testid="stChatMessage"]:has(.jane-user-marker) .stChatMessageContent{display:block!important;flex:0 1 auto!important;width:fit-content!important;max-width:min(88%,760px)!important;margin:0 0 0 auto!important;padding:11px 16px!important;color:#fff!important;background:linear-gradient(115deg,rgba(103,15,37,.84),rgba(52,13,29,.94),rgba(125,20,43,.84),rgba(42,11,24,.94))!important;background-size:320% 320%!important;animation:userGradientFlow 10s ease-in-out infinite, userBubbleGlow 5s ease-in-out infinite!important;border:1px solid rgba(255,70,92,.48)!important;border-radius:20px 20px 6px 20px!important;box-shadow:0 5px 24px rgba(255,35,70,.12),inset 0 1px rgba(255,255,255,.055)!important;overflow-wrap:anywhere!important;position:relative!important}
 @keyframes userGradientFlow{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
-/* Assistant replies remain plain, with no bubble/card. */
-[data-testid="stChatMessage"]:has([data-testid*="chatAvatarIcon-assistant"]),
-[data-testid="stChatMessage"]:has([aria-label="assistant"]),
-[data-testid="stChatMessage"]:has(img[alt="assistant"]){justify-content:flex-start!important}
-[data-testid="stChatMessage"]:has([data-testid*="chatAvatarIcon-assistant"]) [data-testid="stChatMessageContent"],
-[data-testid="stChatMessage"]:has([aria-label="assistant"]) [data-testid="stChatMessageContent"],
-[data-testid="stChatMessage"]:has(img[alt="assistant"]) [data-testid="stChatMessageContent"],
-[data-testid="stChatMessage"]:has([data-testid*="chatAvatarIcon-assistant"]) .stChatMessageContent,
-[data-testid="stChatMessage"]:has([aria-label="assistant"]) .stChatMessageContent,
-[data-testid="stChatMessage"]:has(img[alt="assistant"]) .stChatMessageContent{display:block!important;flex:1 1 auto!important;width:100%!important;max-width:100%!important;margin:0 auto 0 0!important;padding:4px 0 8px!important;color:#f5f2f6!important;background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;overflow-wrap:anywhere!important}
+@keyframes userBubbleGlow{0%,100%{border-color:rgba(255,70,92,.38);box-shadow:0 4px 18px rgba(255,35,70,.09),inset 0 1px rgba(255,255,255,.04)}50%{border-color:rgba(255,95,118,.7);box-shadow:0 5px 25px rgba(255,35,70,.17),inset 0 1px rgba(255,255,255,.08)}}
+/* Assistant replies stay unboxed. */
+[data-testid="stChatMessage"]:has(.jane-assistant-marker){justify-content:flex-start!important}
+[data-testid="stChatMessage"]:has(.jane-assistant-marker) [data-testid="stChatMessageContent"],
+[data-testid="stChatMessage"]:has(.jane-assistant-marker) .stChatMessageContent{display:block!important;flex:1 1 auto!important;width:100%!important;max-width:100%!important;margin:0 auto 0 0!important;padding:4px 0 8px!important;color:#f5f2f6!important;background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;overflow-wrap:anywhere!important}
 [data-testid="stChatMessage"] [data-testid="stMarkdownContainer"]{color:inherit!important;overflow-wrap:anywhere!important}[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p:first-child{margin-top:0!important}[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p:last-child{margin-bottom:0!important}
 [data-testid="stChatInput"]{position:relative!important;background:linear-gradient(125deg,#a10f2b 0%,#5a1023 32%,#1b0e16 67%,#08080b 100%)!important;border:1px solid #ff465c!important;border-radius:22px!important;padding:38px 13px 8px!important;min-height:112px!important;max-height:156px!important;overflow:hidden!important;box-shadow:0 5px 24px rgba(0,0,0,.45)!important}
 div[class*="st-key-open_intelligence_dialog"]{position:fixed!important;z-index:10002!important;left:max(18px,calc((100vw - 900px)/2 + 16px))!important;bottom:169px!important;width:auto!important;max-width:190px!important;margin:0!important}
@@ -220,6 +209,8 @@ if not chat["messages"]:
 
 for message_index, message in enumerate(chat["messages"]):
     with st.chat_message(message["role"], avatar="user" if message["role"] == "user" else "assistant"):
+        marker_class = "jane-user-marker" if message["role"] == "user" else "jane-assistant-marker"
+        st.markdown(f'<span class="{marker_class}"></span>', unsafe_allow_html=True)
         render_message_content(message)
         if message["role"] == "assistant":
             render_copy_answer(message["content"], f"history-{message_index}")
@@ -242,6 +233,7 @@ if prompt:
     chat["messages"].append({"role": "user", "content": prompt, "attachments": attachment_names, "intelligence_mode": mode})
     if chat["title"] == "New conversation": chat["title"] = prompt.strip().replace("\n", " ")[:30] or "New conversation"
     with st.chat_message("user", avatar="user"):
+        st.markdown('<span class="jane-user-marker"></span>', unsafe_allow_html=True)
         render_message_content({"role": "user", "content": prompt})
         if attachment_names: st.caption("📎 " + ", ".join(attachment_names))
     if st.session_state.api_enabled:
