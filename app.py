@@ -101,7 +101,7 @@ def render_message_content(message, key="message"):
 def render_copy_answer(content, key):
     """Render a compact copy button for an assistant response."""
     import json
-    payload = json.dumps(content, ensure_ascii=False).replace("</", "<\/")
+    payload = json.dumps(content, ensure_ascii=False).replace("</", "<\\/")
     components.html(
         f"""<div style="background:transparent;padding:2px 0 6px;">
         <button id="copy-{key}" style="background:#171217;color:#e9e5eb;border:1px solid #49303b;border-radius:8px;padding:6px 11px;font-size:12px;cursor:pointer;">
