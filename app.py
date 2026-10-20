@@ -758,7 +758,19 @@ meta_left, meta_right = st.columns([4, 1])
 with meta_left: st.caption(f"Workspace / {chat['title']}")
 with meta_right: st.caption(f"👤 {st.session_state.profile_name}")
 if not chat["messages"]:
-    st.markdown('<div class="welcome-wrap"><div class="welcome-title">What can I help with?</div><div class="welcome-copy">Research, analyze, organize, and think deeper with J.A.N.E.</div></div>', unsafe_allow_html=True)
+    signed_in_email = str((st.session_state.get("auth_user") or {}).get("email", "")).strip().casefold()
+    is_commander_account = signed_in_email == "editexaura07@gmail.com"
+    if is_commander_account:
+        st.markdown(
+            '<div class="welcome-wrap" style="border:1px solid #8f1934;border-radius:18px;padding:24px 20px;background:linear-gradient(135deg,rgba(120,12,36,.20),rgba(8,8,11,.96));">'
+            '<div class="welcome-title">HELLO, SIR.</div>'
+            '<div class="welcome-copy">Systems are online and ready. What should we accomplish today?</div>'
+            '<div style="margin-top:14px;color:#ff496c;font-size:.78rem;font-weight:700;letter-spacing:.16em;">AWAITING YOUR COMMAND</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown('<div class="welcome-wrap"><div class="welcome-title">What can I help with?</div><div class="welcome-copy">Research, analyze, organize, and think deeper with J.A.N.E.</div></div>', unsafe_allow_html=True)
     suggestions = ["Help me plan an online business", "Analyze a business idea", "Explain a difficult topic"]
     cols = st.columns(3)
     for i, suggestion in enumerate(suggestions):
