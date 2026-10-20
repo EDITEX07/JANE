@@ -16,12 +16,15 @@ from pydantic import BaseModel, ConfigDict, Field
 
 try:
     from google import genai
+    from google.genai import types
 except ImportError:
     genai = None
+    types = None
 
 API_KEY_SHA256 = os.getenv("JANE_API_KEY_SHA256", "").strip().lower()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip()
+WEB_SEARCH_ENABLED = os.getenv("JANE_WEB_SEARCH_ENABLED", "true").strip().lower() in {"1", "true", "yes", "on"}
 REQUESTS_PER_MINUTE = max(1, int(os.getenv("JANE_REQUESTS_PER_MINUTE", "12")))
 MAX_PROMPT_CHARS = 4000
 MAX_HISTORY_MESSAGES = 12
@@ -29,8 +32,8 @@ _recent_requests = defaultdict(deque)
 
 app = FastAPI(
     title="J.A.N.E. Private API",
-    version="1.1.1",
-    description="Private API gateway for the J.A.N.E. assistant.",
+    version="1.2.0",
+    description="Private API gateway for J.A.N.E. with optional Google Search grounding.",
 )
 
 
@@ -46,6 +49,7 @@ class ChatRequest(BaseModel):
     mode: Literal["General", "Adaptive", "Thinker"] = "Adaptive"
     style: Literal["Classic", "JARVIS"] = "Classic"
     history: list[ChatMessage] = Field(default_factory=list, max_length=MAX_HISTORY_MESSAGES)
+    web_search: bool = True
 
 
 def require_api_key(x_jane_api_key: str | None = Header(default=None, alias="X-JANE-API-Key")):
@@ -131,7 +135,7 @@ Naturalness is more important than a fixed response template. Adapt each answer 
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "jane-api", "version": "1.1.1"}
+    return {"status": "ok", "service": "jane-api", "version": "1.2.0", "web_search_configured": WEB_SEARCH_ENABLED}
 
 
 @app.get("/v1/models", dependencies=[Depends(require_api_key)])
@@ -157,19 +161,52 @@ def chat(payload: ChatRequest, key_fingerprint: str = Depends(require_api_key)):
 
     try:
         client = genai.Client(api_key=GEMINI_API_KEY)
+        use_web_search = bool(payload.web_search and WEB_SEARCH_ENABLED)
+        config = {"system_instruction": build_system_instruction(payload.mode, payload.style)}
+        if use_web_search:
+            # Gemini performs searches when useful and returns grounding metadata for citations.
+            config["tools"] = [types.Tool(google_search=types.GoogleSearch())]
+
         response = client.models.generate_content(
             model=GEMINI_MODEL,
             contents=contents,
-            config={"system_instruction": build_system_instruction(payload.mode, payload.style)},
+            config=config,
         )
         answer = getattr(response, "text", None)
         if not answer:
             raise HTTPException(status_code=502, detail="The AI provider returned an empty response.")
+
+        sources = []
+        grounding_used = False
+        try:
+            candidates = getattr(response, "candidates", None) or []
+            metadata = getattr(candidates[0], "grounding_metadata", None) if candidates else None
+            chunks = getattr(metadata, "grounding_chunks", None) if metadata else None
+            if chunks:
+                grounding_used = True
+                seen_urls = set()
+                for chunk in chunks:
+                    web = getattr(chunk, "web", None)
+                    if not web:
+                        continue
+                    url = getattr(web, "uri", None)
+                    title = getattr(web, "title", None) or url
+                    if url and url not in seen_urls:
+                        sources.append({"title": title, "url": url})
+                        seen_urls.add(url)
+        except Exception:
+            # Do not fail a valid answer just because a provider's metadata shape changes.
+            sources = []
+
         return {
             "id": f"jane-{int(time.time() * 1000)}",
             "model": "jane-adaptive",
             "mode": payload.mode,
             "style": payload.style,
+            "web_search_requested": payload.web_search,
+            "web_search_enabled": WEB_SEARCH_ENABLED,
+            "grounding_used": grounding_used,
+            "sources": sources,
             "output_text": answer,
         }
     except HTTPException:
