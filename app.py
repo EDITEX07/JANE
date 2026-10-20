@@ -907,9 +907,29 @@ if prompt:
                     speaker = "User" if item["role"] == "user" else "J.A.N.E."
                     conversation.append(f"{speaker}: {item['content']}")
                 conversation.append("J.A.N.E.:")
-                with st.spinner("J.A.N.E. is thinking..."):
-                    result = client.models.generate_content(model="gemini-3.5-flash-lite", contents="\n\n".join(conversation))
+                with st.spinner("J.A.N.E. is thinking and searching the web when useful..."):
+                    result = client.models.generate_content(
+                        model="gemini-3.5-flash-lite",
+                        contents="\n\n".join(conversation),
+                        config=types.GenerateContentConfig(
+                            tools=[types.Tool(google_search=types.GoogleSearch())],
+                        ),
+                    )
                 answer = result.text or "I didn't receive a text response. Please try again."
+                # Append source links when Gemini returns Google Search grounding metadata.
+                grounding = getattr(result, "grounding_metadata", None)
+                grounding_chunks = getattr(grounding, "grounding_chunks", None) if grounding else None
+                source_lines = []
+                seen_source_urls = set()
+                for chunk in grounding_chunks or []:
+                    web_source = getattr(chunk, "web", None)
+                    source_url = getattr(web_source, "uri", None) if web_source else None
+                    source_title = getattr(web_source, "title", None) if web_source else None
+                    if source_url and source_url not in seen_source_urls:
+                        seen_source_urls.add(source_url)
+                        source_lines.append(f"- [{source_title or source_url}]({source_url})")
+                if source_lines:
+                    answer += "\n\n**Sources**\n" + "\n".join(source_lines)
         except Exception as error:
             error_text = str(error).lower()
             status_code = getattr(error, "status_code", None) or getattr(error, "code", None)
@@ -1018,4 +1038,4 @@ if prompt:
             render_copy_answer(answer, f"latest-{len(chat['messages'])}")
             render_speak_controls(answer, f"latest-{len(chat['messages'])}")
 
-st.markdown("<div class='jane-footer'>J.A.N.E. 1.0 · OCR · Gemini + OpenAI fallback · Guest data is temporary · Verify important decisions</div>", unsafe_allow_html=True)
+st.markdown("<div class='jane-footer'>J.A.N.E. 0.91 · OCR · Gemini + OpenAI fallback · Guest data is temporary · Verify important decisions</div>", unsafe_allow_html=True)
