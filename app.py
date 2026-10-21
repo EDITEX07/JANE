@@ -43,7 +43,7 @@ if "chats" not in st.session_state:
     st.session_state.current_chat = first_id
 for key, default in {
     "profile_name": "Vihaan Shirale", "api_enabled": True, "uploaded_files": {},
-    "pending_prompt": None, "intelligence_mode": "Adaptive", "assistant_style": "Classic",
+    "pending_prompt": None, "intelligence_mode": "Adaptive", "assistant_style": "Classic", "ui_theme": "Original Blue",
     "auth_user": None, "auth_token": None, "auth_refresh_token": None, "auth_mode": "signin", "voice_speed": 1.0,
 }.items():
     if key not in st.session_state:
@@ -272,6 +272,48 @@ div[class*="st-key-open_assistant_style_dialog"] button{min-height:28px!importan
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
 </style>''', unsafe_allow_html=True)
 
+
+
+
+# Selectable workspace color themes.
+_THEME_PALETTES = {
+    "Original Blue": dict(accent="#438bff", glow="#1d5fd1", bg1="#0b1b36", bg2="#080b13", bubble1="#123a78", bubble2="#0c2148", border="#356fc7", text="#f4f7ff", muted="#b8c7e5", composer1="#153d7c", composer2="#080b13"),
+    "Green": dict(accent="#36d399", glow="#13875d", bg1="#0b3027", bg2="#080e0c", bubble1="#125640", bubble2="#0b2b22", border="#258c68", text="#f0fff8", muted="#b5d9ca", composer1="#126047", composer2="#080e0c"),
+    "Pink": dict(accent="#ff69b4", glow="#c72d7f", bg1="#351126", bg2="#100910", bubble1="#78234f", bubble2="#351329", border="#c74788", text="#fff3fa", muted="#e0b8ce", composer1="#76234f", composer2="#100910"),
+    "Purple": dict(accent="#b58aff", glow="#7745c7", bg1="#24133f", bg2="#0b0912", bubble1="#4d287c", bubble2="#26143f", border="#8157c4", text="#f8f3ff", muted="#c9b9e5", composer1="#4d287c", composer2="#0b0912"),
+    "Classic White": dict(accent="#333333", glow="#999999", bg1="#f5f5f5", bg2="#ffffff", bubble1="#e7e7e7", bubble2="#f4f4f4", border="#c7c7c7", text="#171717", muted="#555555", composer1="#eeeeee", composer2="#ffffff"),
+}
+_theme = _THEME_PALETTES.get(st.session_state.get("ui_theme", "Original Blue"), _THEME_PALETTES["Original Blue"])
+_white_theme = st.session_state.get("ui_theme") == "Classic White"
+_white_overrides = """
+[data-testid="stMarkdownContainer"], [data-testid="stCaptionContainer"], label, p, li {color:#222!important}
+.welcome-title,.jane-login-heading,.jane-card-title {color:#171717!important}
+.welcome-copy,.jane-login-sub,.jane-card-copy {color:#444!important}
+[data-testid="stChatMessage"]:has(.jane-assistant-marker) [data-testid="stChatMessageContent"] {color:#171717!important}
+.stButton>button {background:#fff!important;color:#222!important}
+""" if _white_theme else ""
+st.markdown(f"""<style>
+:root{{--jane-red:{_theme['accent']};--jane-border:{_theme['border']};--jane-muted:{_theme['muted']}}}
+.stApp{{color:{_theme['text']}!important;background:radial-gradient(ellipse at 50% 0%,{_theme['bg1']} 0%,{_theme['bg2']} 78%)!important}}
+[data-testid="stSidebar"]{{background:{_theme['bg2']}!important;border-right:1px solid {_theme['border']}!important}}
+.jane-title{{color:{_theme['bg2']}!important;-webkit-text-stroke:1.4px {_theme['accent']}!important;text-shadow:0 0 5px {_theme['accent']},0 0 16px {_theme['glow']}!important}}
+.jane-logo{{filter:drop-shadow(0 0 7px {_theme['glow']})!important}}
+.energy-core{{border-color:{_theme['accent']}!important;box-shadow:0 0 12px {_theme['glow']},inset 0 0 15px {_theme['glow']}!important}}
+.energy-core:before{{border-color:{_theme['accent']}!important}}.energy-core:after{{border-color:{_theme['glow']}!important}}
+.core-dot{{background:{_theme['accent']}!important;box-shadow:0 0 9px {_theme['accent']},0 0 22px {_theme['glow']}!important}}
+h1,h2,h3,.jane-subtitle,.jane-feature-rail span{{color:{_theme['accent']}!important}}
+[data-testid="stChatMessage"]:has(.jane-user-marker) [data-testid="stChatMessageContent"],
+[data-testid="stChatMessage"]:has(.jane-user-marker) .stChatMessageContent{{color:{_theme['text']}!important;background:linear-gradient(115deg,{_theme['bubble1']},{_theme['bubble2']},{_theme['bubble1']})!important;border-color:{_theme['border']}!important;box-shadow:0 5px 24px {_theme['glow']}33!important}}
+[data-testid="stChatMessage"]:has(.jane-assistant-marker) [data-testid="stChatMessageContent"]{{color:{_theme['text']}!important}}
+[data-testid="stChatInput"]{{background:linear-gradient(125deg,{_theme['composer1']},{_theme['composer2']})!important;border-color:{_theme['accent']}!important}}
+[data-testid="stChatInput"] textarea{{color:{_theme['text']}!important}}
+[data-testid="stChatInput"] textarea::placeholder{{color:{_theme['muted']}!important}}
+[data-testid="stChatInput"] button{{background:{_theme['accent']}!important;color:{'#171717' if _white_theme else '#ffffff'}!important}}
+.stButton>button{{border-color:{_theme['border']}!important;color:{_theme['text']}!important}}
+.stButton>button:hover{{border-color:{_theme['accent']}!important}}
+.jane-footer{{color:{_theme['muted']}!important}}
+{_white_overrides}
+</style>""", unsafe_allow_html=True)
 
 
 # -------------------- FIREBASE AUTHENTICATION --------------------
@@ -841,6 +883,7 @@ if st.button(f"◉ {st.session_state.intelligence_mode} ▾", key="open_intellig
     intelligence_dialog()
 if st.button(f"✦ {st.session_state.assistant_style} ▾", key="open_assistant_style_dialog", help="Choose Classic or JARVIS style"):
     assistant_style_dialog()
+st.selectbox("UI color theme", ["Original Blue", "Green", "Pink", "Purple", "Classic White"], key="ui_theme", help="Change J.A.N.E.'s workspace colors.")
 image_mode = st.selectbox(
     "J.A.N.E. mode",
     ["Chat", "Generate image"],
@@ -973,13 +1016,22 @@ if prompt:
                     conversation.append("\n\nATTACHMENT CONTENT FOR THIS REQUEST:\n" + "\n\n".join(attachment_context))
                 conversation.append("J.A.N.E.:")
                 model_contents = ["\n\n".join(conversation)] + multimodal_parts
-                with st.spinner("J.A.N.E. is reading your attachments and thinking..."):
+                prompt_lower = prompt.lower()
+                needs_web_search = any(term in prompt_lower for term in (
+                    "search the web", "search online", "look up", "latest", "today", "current price",
+                    "current news", "recent news", "sources", "citations", "research online", "verify online",
+                    "what happened this week", "website", "url", "internet"
+                ))
+                request_config = types.GenerateContentConfig(
+                    max_output_tokens=1200,
+                    temperature=0.4,
+                    **({"tools": [types.Tool(google_search=types.GoogleSearch())]} if needs_web_search else {}),
+                )
+                with st.spinner("J.A.N.E. is thinking..."):
                     result = client.models.generate_content(
                         model="gemini-3.5-flash-lite",
                         contents=model_contents,
-                        config=types.GenerateContentConfig(
-                            tools=[types.Tool(google_search=types.GoogleSearch())],
-                        ),
+                        config=request_config,
                     )
                 answer = clean_model_answer(result.text)
                 # Append source links when Gemini returns Google Search grounding metadata.
@@ -1043,7 +1095,7 @@ if prompt:
 
                 if openrouter_key:
                     try:
-                        with st.spinner("Gemini hit a limit. J.A.N.E. is switching to OpenRouter..."):
+                        with st.spinner("J.A.N.E. is thinking..."):
                             openrouter_client = OpenAI(
                                 api_key=openrouter_key,
                                 base_url="https://openrouter.ai/api/v1",
@@ -1052,17 +1104,16 @@ if prompt:
                             openrouter_response = openrouter_client.chat.completions.create(
                                 model=st.secrets.get("OPENROUTER_MODEL", "minimax/minimax-m3.1-flash:free"),
                                 temperature=0.4,
-                                max_tokens=1800,
+                                max_tokens=1200,
                                 messages=[{"role": "system", "content": fallback_instructions}] + fallback_history,
                             )
                         answer = clean_model_answer(openrouter_response.choices[0].message.content)
-                        st.caption("↪ Answered by OpenRouter because Gemini reached its quota/rate limit.")
                     except Exception as openrouter_error:
                         fallback_errors.append(("OpenRouter", openrouter_error))
 
                 if not answer and openai_key:
                     try:
-                        with st.spinner("Trying the configured OpenAI fallback..."):
+                        with st.spinner("J.A.N.E. is thinking..."):
                             openai_client = OpenAI(api_key=openai_key)
                             openai_response = openai_client.responses.create(
                                 model=st.secrets.get("OPENAI_MODEL", "gpt-4.1-mini"),
@@ -1070,60 +1121,15 @@ if prompt:
                                 input=fallback_history,
                             )
                         answer = clean_model_answer(openai_response.output_text)
-                        st.caption("↪ Answered by OpenAI because the primary provider reached its quota/rate limit.")
                     except Exception as openai_error:
                         fallback_errors.append(("OpenAI", openai_error))
 
                 if not answer:
                     if not openrouter_key and not openai_key:
-                        answer = (
-                            "Gemini is unavailable or has reached a limit, and no backup provider is configured. "
-                            "Add OPENROUTER_API_KEY in Streamlit Settings → Secrets (recommended), or optionally OPENAI_API_KEY."
-                        )
+                        answer = "J.A.N.E. couldn't connect to the AI service just now. Please try again in a moment. If this keeps happening, check the API keys in Streamlit Secrets."
                     else:
                         providers = ", ".join(name for name, _ in fallback_errors) or "backup providers"
                         last_error = fallback_errors[-1][1] if fallback_errors else None
                         error_text = str(last_error).lower() if last_error else ""
                         if "401" in error_text or "authentication" in error_text or "api key" in error_text or "unauthorized" in error_text:
-                            answer = f"Gemini failed, and {providers} authentication failed. Check the provider key in Streamlit Secrets."
-                        elif "429" in error_text or "quota" in error_text or "rate limit" in error_text:
-                            answer = f"Gemini and {providers} are currently unavailable or rate-limited. Try again later or check provider limits."
-                        else:
-                            answer = f"Gemini failed, and {providers} fallback failed. Check Streamlit logs; API keys are not displayed."
-            elif is_key_error:
-                answer = "The Gemini API secret is missing or invalid. Check GEMINI_API_KEY in Streamlit app settings → Secrets. Never put keys in this file or commit them to GitHub."
-            elif is_quota_error:
-                answer = "Gemini image generation is unavailable or rate-limited. OpenRouter fallback currently applies to text chat only; check Gemini usage or try image generation later."
-            else:
-                answer = f"I couldn't complete that request ({type(error).__name__}). Check Streamlit logs for the full error; your API key is not displayed here."
-    assistant_message = {"role": "assistant", "content": answer, "intelligence_mode": mode}
-    if generated_image_bytes:
-        assistant_message["image_bytes"] = generated_image_bytes
-        assistant_message["image_filename"] = "jane_generated_image.png"
-    chat["messages"].append(assistant_message)
-    # Persist full text conversation for signed-in users; Guest chat history stays session-only.
-    if st.session_state.get("auth_user"):
-        try:
-            save_chat_history(st.session_state.current_chat, chat)
-            st.session_state.chat_history_error = ""
-        except Exception as exc:
-            st.session_state.chat_history_error = str(exc)
-    # Signed-in users get automatic memory formation. Guest memory is deliberately disabled.
-    if st.session_state.get("auth_user") and not generated_image_bytes:
-        candidates = extract_memories(prompt, answer)
-        for candidate in candidates:
-            try:
-                save_memory(candidate, source="automatic")
-            except Exception:
-                # A memory write must never break the chat response.
-                pass
-    with st.chat_message("assistant", avatar="assistant"):
-        st.markdown(answer)
-        if generated_image_bytes:
-            st.image(generated_image_bytes, caption="Generated by J.A.N.E.", use_container_width=True)
-            st.download_button("⬇ Download image", data=generated_image_bytes, file_name="jane_generated_image.png", mime="image/png", key=f"download_latest_image_{len(chat['messages'])}")
-        else:
-            render_copy_answer(answer, f"latest-{len(chat['messages'])}")
-            render_speak_controls(answer, f"latest-{len(chat['messages'])}")
-
-st.markdown("<div class='jane-footer'>J.A.N.E. 0.91 · OCR · Gemini + OpenAI fallback · Guest data is temporary · Verify important decisions</div>", unsafe_allow_html=True)
+                            answer = "J.A.N.E. could not connect to the AI service. Please check the API key 
