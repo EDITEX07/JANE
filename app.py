@@ -1118,4 +1118,4 @@ if prompt:
                                 default_headers={"X-Title": "J.A.N.E. AI Workspace"},
                             )
                             openrouter_response = openrouter_client.chat.completions.create(
-                                model=st.secrets.get("OPENROUTER_MODEL", "minimax/minimax-m3.1-flash
+                                model=st.secrets.get("OPENROUTER_MODEL","minimax/minimax-m3.1-flash")
