@@ -45,6 +45,7 @@ for key, default in {
     "profile_name": "Vihaan Shirale", "api_enabled": True, "uploaded_files": {},
     "pending_prompt": None, "intelligence_mode": "Adaptive", "assistant_style": "Classic",
     "auth_user": None, "auth_token": None, "auth_refresh_token": None, "auth_mode": "signin", "voice_speed": 1.0,
+    "jane_theme": "Red",
 }.items():
     if key not in st.session_state:
         st.session_state[key] = default
@@ -272,6 +273,36 @@ div[class*="st-key-open_assistant_style_dialog"] button{min-height:28px!importan
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
 </style>''', unsafe_allow_html=True)
 
+# -------------------- PERSONAL UI THEMES --------------------
+# Theme selection is stored in Streamlit session state and immediately updates the workspace.
+JANE_THEMES = {
+    "Red":    {"accent": "#ff465c", "accent2": "#ff7182", "rgb": "255,70,92", "deep": "#4a1020", "bubble": "103,15,37"},
+    "Blue":   {"accent": "#48a7ff", "accent2": "#83c5ff", "rgb": "72,167,255", "deep": "#102b4a", "bubble": "15,48,88"},
+    "Green":  {"accent": "#38d98b", "accent2": "#83f0b7", "rgb": "56,217,139", "deep": "#103b2b", "bubble": "12,75,48"},
+    "Yellow": {"accent": "#ffd447", "accent2": "#ffe68a", "rgb": "255,212,71", "deep": "#493b12", "bubble": "91,69,12"},
+    "Pink":   {"accent": "#ff65c3", "accent2": "#ff9edb", "rgb": "255,101,195", "deep": "#481637", "bubble": "91,16,64"},
+    "Purple": {"accent": "#ad7bff", "accent2": "#ceb0ff", "rgb": "173,123,255", "deep": "#2c194b", "bubble": "55,25,95"},
+    "White":  {"accent": "#f4f4f7", "accent2": "#ffffff", "rgb": "244,244,247", "deep": "#303039", "bubble": "55,55,65"},
+}
+_theme = JANE_THEMES.get(st.session_state.get("jane_theme", "Red"), JANE_THEMES["Red"])
+st.markdown(f'''<style>
+:root{{--jane-accent:{_theme['accent']};--jane-accent2:{_theme['accent2']};--jane-glow:{_theme['rgb']};--jane-deep:{_theme['deep']};--jane-border:rgba({_theme['rgb']},.30);--jane-muted:#aaa5b2}}
+.stApp{{background:radial-gradient(ellipse at 50% 0%,rgba({_theme['rgb']},.16) 0%,#130d14 42%,#09090d 100%)!important}}
+.welcome-wrap{{border-color:rgba({_theme['rgb']},.58)!important}}
+.jane-title{{-webkit-text-stroke-color:var(--jane-accent)!important;text-shadow:0 0 5px var(--jane-accent),0 0 16px rgba({_theme['rgb']},.75)!important}}
+.jane-logo{{filter:drop-shadow(0 0 7px rgba({_theme['rgb']},.75))!important}}
+.energy-core{{border-color:rgba({_theme['rgb']},.85)!important;box-shadow:0 0 12px var(--jane-accent),inset 0 0 15px rgba({_theme['rgb']},.4)!important}}
+.energy-core:before{{border-color:rgba({_theme['rgb']},.75)!important}}.energy-core:after{{border-color:rgba({_theme['rgb']},.65)!important}}
+.core-dot{{background:var(--jane-accent)!important;box-shadow:0 0 9px var(--jane-accent),0 0 22px var(--jane-accent)!important}}
+[data-testid="stChatInput"]{{background:linear-gradient(125deg,var(--jane-deep) 0%,rgba({_theme['rgb']},.32) 32%,#1b0e16 67%,#08080b 100%)!important;border-color:var(--jane-accent)!important}}
+[data-testid="stChatInput"]:focus-within{{border-color:var(--jane-accent2)!important;box-shadow:0 0 0 1px var(--jane-accent),0 5px 24px rgba(0,0,0,.38)!important}}
+[data-testid="stChatInput"] button{{background:var(--jane-accent)!important;color:{'#17171b' if st.session_state.get('jane_theme') == 'Yellow' or st.session_state.get('jane_theme') == 'White' else '#ffffff'}!important}}
+[data-testid="stChatMessage"]:has(.jane-user-marker) .stChatMessageContent,[data-testid="stChatMessage"]:has(.jane-user-marker) .stChatMessageContent{{background:linear-gradient(115deg,rgba({_theme['bubble']},.90),rgba({_theme['rgb']},.18),rgba({_theme['bubble']},.96))!important;border-color:rgba({_theme['rgb']},.58)!important;box-shadow:0 5px 24px rgba({_theme['rgb']},.12),inset 0 1px rgba(255,255,255,.055)!important}}
+@keyframes userBubbleGlow{{0%,100%{{border-color:rgba({_theme['rgb']},.38);box-shadow:0 4px 18px rgba({_theme['rgb']},.09),inset 0 1px rgba(255,255,255,.04)}}50%{{border-color:rgba({_theme['rgb']},.75);box-shadow:0 5px 25px rgba({_theme['rgb']},.19),inset 0 1px rgba(255,255,255,.08)}}}}
+.stButton>button:hover{{border-color:var(--jane-accent)!important}}h1,h2,h3{{color:var(--jane-accent)!important}}
+[data-testid="stSidebar"]{{border-right-color:rgba({_theme['rgb']},.30)!important}}
+.jane-theme-chip{{display:inline-block;width:11px;height:11px;border-radius:50%;background:var(--jane-accent);box-shadow:0 0 10px rgba({_theme['rgb']},.6);vertical-align:middle;margin-right:7px}}
+</style>''', unsafe_allow_html=True)
 
 
 # -------------------- FIREBASE AUTHENTICATION --------------------
@@ -578,6 +609,22 @@ if st.session_state.get("auth_user"):
         except Exception as exc:
             st.session_state.chat_history_error = str(exc)
 
+# Always-visible appearance control: keep this in the main page so it is not hidden
+# by the collapsed sidebar or the welcome/sign-in screen.
+_theme_cols = st.columns([1, 2, 1])
+with _theme_cols[1]:
+    st.selectbox(
+        "🎨 Customize J.A.N.E. UI color",
+        options=["Red", "Blue", "Green", "Yellow", "Pink", "Purple", "White"],
+        key="jane_theme",
+        format_func=lambda color: {
+            "Red": "🔴 Red", "Blue": "🔵 Blue", "Green": "🟢 Green",
+            "Yellow": "🟡 Yellow", "Pink": "🩷 Pink", "Purple": "🟣 Purple",
+            "White": "⚪ White / Classic",
+        }.get(color, color),
+        help="Changes the workspace accent color immediately. The selection lasts for this app session.",
+    )
+
 if st.session_state.jane_entry_screen != "workspace":
     st.markdown(r'''<style>
 .block-container{max-width:900px!important;padding-top:.35rem!important;padding-bottom:2rem!important}
@@ -650,7 +697,8 @@ if st.session_state.jane_entry_screen != "workspace":
 with st.sidebar:
     st.markdown("## 🔴 J.A.N.E.")
     st.caption("Your personal intelligence workspace")
-    with st.expander("⚙️ Settings", expanded=False):
+    with st.expander("⚙️ Settings & appearance", expanded=False):
+        st.markdown("**Voice settings**")
         st.slider(
             "System voice speed", min_value=0.5, max_value=3.0,
             value=float(st.session_state.get("voice_speed", 1.0)), step=0.1,
@@ -1084,46 +1132,4 @@ if prompt:
                         providers = ", ".join(name for name, _ in fallback_errors) or "backup providers"
                         last_error = fallback_errors[-1][1] if fallback_errors else None
                         error_text = str(last_error).lower() if last_error else ""
-                        if "401" in error_text or "authentication" in error_text or "api key" in error_text or "unauthorized" in error_text:
-                            answer = f"Gemini failed, and {providers} authentication failed. Check the provider key in Streamlit Secrets."
-                        elif "429" in error_text or "quota" in error_text or "rate limit" in error_text:
-                            answer = f"Gemini and {providers} are currently unavailable or rate-limited. Try again later or check provider limits."
-                        else:
-                            answer = f"Gemini failed, and {providers} fallback failed. Check Streamlit logs; API keys are not displayed."
-            elif is_key_error:
-                answer = "The Gemini API secret is missing or invalid. Check GEMINI_API_KEY in Streamlit app settings → Secrets. Never put keys in this file or commit them to GitHub."
-            elif is_quota_error:
-                answer = "Gemini image generation is unavailable or rate-limited. OpenRouter fallback currently applies to text chat only; check Gemini usage or try image generation later."
-            else:
-                answer = f"I couldn't complete that request ({type(error).__name__}). Check Streamlit logs for the full error; your API key is not displayed here."
-    assistant_message = {"role": "assistant", "content": answer, "intelligence_mode": mode}
-    if generated_image_bytes:
-        assistant_message["image_bytes"] = generated_image_bytes
-        assistant_message["image_filename"] = "jane_generated_image.png"
-    chat["messages"].append(assistant_message)
-    # Persist full text conversation for signed-in users; Guest chat history stays session-only.
-    if st.session_state.get("auth_user"):
-        try:
-            save_chat_history(st.session_state.current_chat, chat)
-            st.session_state.chat_history_error = ""
-        except Exception as exc:
-            st.session_state.chat_history_error = str(exc)
-    # Signed-in users get automatic memory formation. Guest memory is deliberately disabled.
-    if st.session_state.get("auth_user") and not generated_image_bytes:
-        candidates = extract_memories(prompt, answer)
-        for candidate in candidates:
-            try:
-                save_memory(candidate, source="automatic")
-            except Exception:
-                # A memory write must never break the chat response.
-                pass
-    with st.chat_message("assistant", avatar="assistant"):
-        st.markdown(answer)
-        if generated_image_bytes:
-            st.image(generated_image_bytes, caption="Generated by J.A.N.E.", use_container_width=True)
-            st.download_button("⬇ Download image", data=generated_image_bytes, file_name="jane_generated_image.png", mime="image/png", key=f"download_latest_image_{len(chat['messages'])}")
-        else:
-            render_copy_answer(answer, f"latest-{len(chat['messages'])}")
-            render_speak_controls(answer, f"latest-{len(chat['messages'])}")
-
-st.markdown("<div class='jane-footer'>J.A.N.E. 0.91 · OCR · Gemini + OpenAI fallback · Guest data is temporary · Verify important decisions</div>", unsafe_allow_html=True)
+                        if "401" in error_text or "authentication
