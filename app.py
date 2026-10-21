@@ -286,7 +286,7 @@ JANE_THEMES = {
 }
 _theme = JANE_THEMES.get(st.session_state.get("jane_theme", "Red"), JANE_THEMES["Red"])
 st.markdown(f'''<style>
-:root{{--jane-accent:{_theme['accent']};--jane-accent2:{_theme['accent2']};--jane-glow:{_theme['rgb']};--jane-deep:{_theme['deep']};--jane-border:rgba({_theme['rgb']},.30);--jane-muted:#aaa5b2}}
+:root{{--jane-red:{_theme['accent']};--jane-accent:{_theme['accent']};--jane-accent2:{_theme['accent2']};--jane-glow:{_theme['rgb']};--jane-deep:{_theme['deep']};--jane-border:rgba({_theme['rgb']},.30);--jane-muted:#aaa5b2}}
 .stApp{{background:radial-gradient(ellipse at 50% 0%,rgba({_theme['rgb']},.16) 0%,#130d14 42%,#09090d 100%)!important}}
 .welcome-wrap{{border-color:rgba({_theme['rgb']},.58)!important}}
 .jane-title{{-webkit-text-stroke-color:var(--jane-accent)!important;text-shadow:0 0 5px var(--jane-accent),0 0 16px rgba({_theme['rgb']},.75)!important}}
@@ -302,6 +302,26 @@ st.markdown(f'''<style>
 .stButton>button:hover{{border-color:var(--jane-accent)!important}}h1,h2,h3{{color:var(--jane-accent)!important}}
 [data-testid="stSidebar"]{{border-right-color:rgba({_theme['rgb']},.30)!important}}
 .jane-theme-chip{{display:inline-block;width:11px;height:11px;border-radius:50%;background:var(--jane-accent);box-shadow:0 0 10px rgba({_theme['rgb']},.6);vertical-align:middle;margin-right:7px}}
+/* Extend the selected accent to both the login screen and the main workspace. */
+.jane-login-title{{color:var(--jane-accent)!important;text-shadow:0 0 8px var(--jane-accent),0 0 24px rgba({_theme['rgb']},.55)!important}}
+.jane-login-kicker,.jane-login-foot,.jane-login-foot:before,.jane-login-foot:after{{color:var(--jane-accent)!important;border-color:var(--jane-accent)!important;background-color:transparent}}
+.jane-login-shell .jane-login-heading span{{color:var(--jane-accent)!important}}
+.jane-card-icon{{color:var(--jane-accent)!important;text-shadow:0 0 12px rgba({_theme['rgb']},.45)!important}}
+.jane-login-card{{border-color:rgba({_theme['rgb']},.38)!important}}
+.jane-login-card:hover{{border-color:var(--jane-accent)!important;box-shadow:0 0 22px rgba({_theme['rgb']},.12)!important}}
+.stSelectbox [data-baseweb="select"]>div{{border-color:rgba({_theme['rgb']},.6)!important}}
+.stSelectbox [data-baseweb="select"]:focus-within>div{{box-shadow:0 0 0 1px var(--jane-accent)!important}}
+[data-testid="stSidebar"] [data-testid="stExpander"]{{border-color:rgba({_theme['rgb']},.25)!important}}
+/* Catch older hard-coded red accents so the theme changes consistently everywhere. */
+.jane-subtitle,.jane-footer{{color:rgba({_theme['rgb']},.9)!important}}
+.jane-login-shell{{border-color:rgba({_theme['rgb']},.35)!important}}
+.jane-login-shell:before,.jane-login-shell:after{{border-color:rgba({_theme['rgb']},.18)!important}}
+.jane-login-card:before{{background:linear-gradient(90deg,transparent,var(--jane-accent),transparent)!important}}
+.jane-login-heading span,.jane-feature-rail span{{color:var(--jane-accent)!important}}
+.jane-card-icon{{color:var(--jane-accent)!important}}
+[data-testid="stChatInput"]{{outline-color:var(--jane-accent)!important}}
+.stButton>button[kind="primary"],.stButton>button[data-testid*="baseButton-primary"]{{background:linear-gradient(115deg,var(--jane-deep),var(--jane-accent))!important;border-color:var(--jane-accent)!important;color:{'#17171b' if st.session_state.get('jane_theme') in ('Yellow','White') else '#ffffff'}!important}}
+.stButton>button[kind="primary"]:hover,.stButton>button[data-testid*="baseButton-primary"]:hover{{filter:brightness(1.08)!important}}
 </style>''', unsafe_allow_html=True)
 
 
@@ -1098,38 +1118,4 @@ if prompt:
                                 default_headers={"X-Title": "J.A.N.E. AI Workspace"},
                             )
                             openrouter_response = openrouter_client.chat.completions.create(
-                                model=st.secrets.get("OPENROUTER_MODEL", "minimax/minimax-m3.1-flash:free"),
-                                temperature=0.4,
-                                max_tokens=1800,
-                                messages=[{"role": "system", "content": fallback_instructions}] + fallback_history,
-                            )
-                        answer = clean_model_answer(openrouter_response.choices[0].message.content)
-                        st.caption("↪ Answered by OpenRouter because Gemini reached its quota/rate limit.")
-                    except Exception as openrouter_error:
-                        fallback_errors.append(("OpenRouter", openrouter_error))
-
-                if not answer and openai_key:
-                    try:
-                        with st.spinner("Trying the configured OpenAI fallback..."):
-                            openai_client = OpenAI(api_key=openai_key)
-                            openai_response = openai_client.responses.create(
-                                model=st.secrets.get("OPENAI_MODEL", "gpt-4.1-mini"),
-                                instructions=fallback_instructions,
-                                input=fallback_history,
-                            )
-                        answer = clean_model_answer(openai_response.output_text)
-                        st.caption("↪ Answered by OpenAI because the primary provider reached its quota/rate limit.")
-                    except Exception as openai_error:
-                        fallback_errors.append(("OpenAI", openai_error))
-
-                if not answer:
-                    if not openrouter_key and not openai_key:
-                        answer = (
-                            "Gemini is unavailable or has reached a limit, and no backup provider is configured. "
-                            "Add OPENROUTER_API_KEY in Streamlit Settings → Secrets (recommended), or optionally OPENAI_API_KEY."
-                        )
-                    else:
-                        providers = ", ".join(name for name, _ in fallback_errors) or "backup providers"
-                        last_error = fallback_errors[-1][1] if fallback_errors else None
-                        error_text = str(last_error).lower() if last_error else ""
-                        if "401" in error_text or "authentication
+                                model=st.secrets.get("OPENROUTER_MODEL", "minimax/minimax-m3.1-flash
