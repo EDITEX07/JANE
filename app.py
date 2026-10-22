@@ -24,7 +24,7 @@ if "chats" not in st.session_state:
     st.session_state.current_chat = first_id
 for key, default in {
     "profile_name": "Explorer", "api_enabled": True, "uploaded_files": {},
-    "pending_prompt": None, "intelligence_mode": "Adaptive",
+    "pending_prompt": None, "intelligence_mode": "Adaptive", "assistant_style": "Classic",
     "auth_user": None, "auth_token": None, "auth_refresh_token": None, "auth_mode": "signin", "voice_speed": 1.0,
 }.items():
     if key not in st.session_state:
@@ -120,6 +120,29 @@ def intelligence_dialog():
                     st.rerun()
     st.caption("Your choice stays active until you change it.")
 
+
+
+@st.dialog("Choose assistant style")
+def assistant_style_dialog():
+    st.caption("Choose how J.A.N.E. speaks to you.")
+    options = {
+        "Classic": ("💬", "Natural, friendly, everyday J.A.N.E."),
+        "JARVIS": ("🛡️", "Formal, disciplined, mission-focused personal assistant."),
+    }
+    for name in ("Classic", "JARVIS"):
+        icon, description = options[name]
+        with st.container(border=True):
+            left, right = st.columns([5, 1])
+            with left:
+                st.markdown(f"**{icon} {name}**")
+                st.caption(description)
+            with right:
+                if st.session_state.assistant_style == name:
+                    st.markdown("**✓ Active**")
+                elif st.button("Select", key=f"style_select_{name}", use_container_width=True):
+                    st.session_state.assistant_style = name
+                    st.rerun()
+    st.caption("This changes J.A.N.E.'s response style, not its intelligence mode.")
 
 def render_message_content(message):
     content = message.get("content", "")
@@ -220,11 +243,13 @@ html,body,[class*="css"]{font-family:Inter,system-ui,sans-serif}
 [data-testid="stChatInput"]{position:relative!important;background:linear-gradient(125deg,#a10f2b 0%,#5a1023 32%,#1b0e16 67%,#08080b 100%)!important;border:1px solid #ff465c!important;border-radius:22px!important;padding:38px 13px 8px!important;min-height:112px!important;max-height:156px!important;overflow:visible!important;box-shadow:0 5px 24px rgba(0,0,0,.45)!important}
 div[class*="st-key-open_intelligence_dialog"]{position:fixed!important;z-index:10002!important;left:max(18px,calc((100vw - 900px)/2 + 16px))!important;bottom:169px!important;width:auto!important;max-width:190px!important;margin:0!important}
 div[class*="st-key-open_intelligence_dialog"] button{min-height:28px!important;height:28px!important;width:auto!important;padding:2px 10px!important;border-radius:999px!important;background:rgba(12,8,13,.92)!important;border:1px solid rgba(255,150,165,.55)!important;color:#fff!important;font-size:12px!important;white-space:nowrap!important}
+div[class*="st-key-open_assistant_style_dialog"]{position:fixed!important;z-index:10002!important;left:max(205px,calc((100vw - 900px)/2 + 205px))!important;bottom:169px!important;width:auto!important;max-width:160px!important;margin:0!important}
+div[class*="st-key-open_assistant_style_dialog"] button{min-height:28px!important;height:28px!important;width:auto!important;padding:2px 10px!important;border-radius:999px!important;background:rgba(12,8,13,.92)!important;border:1px solid rgba(255,150,165,.55)!important;color:#fff!important;font-size:12px!important;white-space:nowrap!important}
 [data-testid="stChatInput"]:focus-within{border-color:#ff7182!important;box-shadow:0 0 0 1px #ff465c,0 5px 24px rgba(0,0,0,.38)!important}[data-testid="stChatInput"] textarea{box-sizing:border-box!important;width:100%!important;color:#fff!important;background:transparent!important;font-size:16px!important;line-height:1.5!important;min-height:42px!important;max-height:7.2em!important;overflow-y:auto!important;resize:none!important;padding-right:3.2rem!important}
 [data-testid="stChatInput"] button{position:absolute!important;right:10px!important;bottom:10px!important;z-index:5!important;flex:0 0 auto!important;min-width:38px!important;width:38px!important;height:38px!important;display:flex!important;align-items:center!important;justify-content:center!important}
 [data-testid="stChatInput"] form,[data-testid="stChatInput"]>div{position:relative!important;min-width:0!important;box-sizing:border-box!important}[data-testid="stChatInput"] textarea::placeholder{color:#d0c5cc!important;opacity:1!important}[data-testid="stChatInput"] button{background:#ff465c!important;color:#fff!important;border:0!important;border-radius:50%!important}
 .stButton>button{min-height:42px;border-radius:12px;border:1px solid var(--jane-border);background:#211923;color:#f4f4f5;transition:border-color .2s ease}.stButton>button:hover{border-color:var(--jane-red);color:#fff}[data-testid="stFileUploader"]{background:rgba(21,19,26,.85);border-radius:14px}h1,h2,h3{color:#ff5267}p,label,li{overflow-wrap:anywhere}.jane-footer{color:#898491;font-size:11px;text-align:center;padding:12px 4px 5px}
-@media(max-width:768px){.block-container{padding:.7rem .65rem 130px!important;max-width:100%}.jane-logo{width:130px}.jane-subtitle{font-size:9px;letter-spacing:2px}.core-wrap{height:75px;margin:8px auto 15px}.energy-core{width:58px;height:58px}[data-testid="stChatInput"]{border-radius:20px!important;padding:38px 12px 8px!important;min-height:112px!important;max-height:156px!important}div[class*="st-key-open_intelligence_dialog"]{left:24px!important;bottom:169px!important;max-width:180px!important}.stButton>button{min-height:44px;font-size:14px}}
+@media(max-width:768px){.block-container{padding:.7rem .65rem 130px!important;max-width:100%}.jane-logo{width:130px}.jane-subtitle{font-size:9px;letter-spacing:2px}.core-wrap{height:75px;margin:8px auto 15px}.energy-core{width:58px;height:58px}[data-testid="stChatInput"]{border-radius:20px!important;padding:38px 12px 8px!important;min-height:112px!important;max-height:156px!important}div[class*="st-key-open_intelligence_dialog"]{left:24px!important;bottom:169px!important;max-width:180px!important}div[class*="st-key-open_assistant_style_dialog"]{left:190px!important;bottom:169px!important;max-width:145px!important}.stButton>button{min-height:44px;font-size:14px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
 </style>''', unsafe_allow_html=True)
 
@@ -758,7 +783,19 @@ meta_left, meta_right = st.columns([4, 1])
 with meta_left: st.caption(f"Workspace / {chat['title']}")
 with meta_right: st.caption(f"👤 {st.session_state.profile_name}")
 if not chat["messages"]:
-    st.markdown('<div class="welcome-wrap"><div class="welcome-title">What can I help with?</div><div class="welcome-copy">Research, analyze, organize, and think deeper with J.A.N.E.</div></div>', unsafe_allow_html=True)
+    signed_in_email = str((st.session_state.get("auth_user") or {}).get("email", "")).strip().casefold()
+    is_commander_account = signed_in_email == "editexaura07@gmail.com"
+    if is_commander_account:
+        st.markdown(
+            '<div class="welcome-wrap" style="border:1px solid #8f1934;border-radius:18px;padding:24px 20px;background:linear-gradient(135deg,rgba(120,12,36,.20),rgba(8,8,11,.96));">'
+            '<div class="welcome-title">HELLO, SIR.</div>'
+            '<div class="welcome-copy">Systems are online and ready. What should we accomplish today?</div>'
+            '<div style="margin-top:14px;color:#ff496c;font-size:.78rem;font-weight:700;letter-spacing:.16em;">AWAITING YOUR COMMAND</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown('<div class="welcome-wrap"><div class="welcome-title">What can I help with?</div><div class="welcome-copy">Research, analyze, organize, and think deeper with J.A.N.E.</div></div>', unsafe_allow_html=True)
     suggestions = ["Help me plan an online business", "Analyze a business idea", "Explain a difficult topic"]
     cols = st.columns(3)
     for i, suggestion in enumerate(suggestions):
@@ -781,8 +818,10 @@ for message_index, message in enumerate(chat["messages"]):
 
 if st.session_state.uploaded_files:
     st.caption("📎 Attached in this session: " + ", ".join(st.session_state.uploaded_files.keys()))
-if st.button(f"◉ {st.session_state.intelligence_mode} ▾", key="open_intelligence_dialog", help="Choose how J.A.N.E. responds"):
+if st.button(f"◉ {st.session_state.intelligence_mode} ▾", key="open_intelligence_dialog", help="Choose how J.A.N.E. thinks"):
     intelligence_dialog()
+if st.button(f"✦ {st.session_state.assistant_style} ▾", key="open_assistant_style_dialog", help="Choose Classic or JARVIS style"):
+    assistant_style_dialog()
 image_mode = st.selectbox(
     "J.A.N.E. mode",
     ["Chat", "Generate image"],
@@ -851,7 +890,7 @@ if prompt:
             else:
                 mode_instructions = {
                     "General": "Use natural, direct conversation. Keep simple answers short, avoid unnecessary headings and analysis, and expand only when asked or genuinely needed.",
-                    "Adaptive": "First identify the task type, then choose the most useful response style: conversational for chat, step-by-step for learning or troubleshooting, actionable for coding, criteria-based for comparisons, structured for planning, and careful about evidence and uncertainty for research. Ask a clarifying question only when essential.",
+                    "Adaptive": "Silently infer what the user needs and respond in the most natural, useful way. Adapt detail and format to the situation without announcing or labeling the task type, response style, or your internal approach. Use conversational prose by default; use steps, lists, or structure only when they genuinely help. Ask a clarifying question only when essential.",
                     "Thinker": "For complex questions, examine assumptions, alternatives, trade-offs, edge cases, likely failure points, and calculation consistency before answering. Separate established facts from inference, then give a clear conclusion and useful supporting rationale. Stay concise for simple questions and never reveal private chain-of-thought.",
                 }
                 creator_age = 13 + (datetime.now().year - 2026)
@@ -862,15 +901,35 @@ if prompt:
                     f'also a {creator_age}-year-old developer." Use these ages as a calendar-year estimate, '
                     f'increasing them by one each new year from the 2026 baseline. Do not invent other creators.'
                 )
-                system_instruction = ("You are J.A.N.E. (Judicious, Analytical, and Neuroresearch Engine), a warm, composed, intelligent, naturally conversational assistant with understated wit. Sound like a person having a conversation, not a critic, therapist, interviewer, teacher, or essay writer. IMPORTANT CONVERSATION STYLE: Do not analyze, interpret, grade, or comment on the user's wording, greeting, personality, intelligence, emotions, or intentions unless they explicitly ask you to. Never turn a simple message like 'Hey', 'Hi', 'Okay', or 'Thanks' into an explanation of what that message means; respond naturally and briefly, e.g. 'Hey! What's up?' or 'Anytime.' Keep casual replies to one short sentence by default. Avoid patronizing praise, unsolicited life lessons, overdramatic observations, and phrases that make the user feel examined or judged. Match the user's tone without forced slang. For real questions, answer directly; provide deeper analysis, structured detail, or critique only when requested or genuinely useful. Be respectful, supportive without being condescending, and honest about uncertainty. Do not claim to be Patrick Jane or imitate any actor's exact voice. Never claim to have verified information or performed actions you have not completed. Uploaded files are not automatically included in this request. " + creator_identity + " " + f"Active intelligence mode: {mode}. Mode instructions: {mode_instructions[mode]}")
+                system_instruction = ("You are J.A.N.E. (Judicious, Analytical, and Neuroresearch Engine), a warm, composed, intelligent, naturally conversational assistant with understated wit. Sound like a person having a conversation, not a critic, therapist, interviewer, teacher, or essay writer. IMPORTANT CONVERSATION STYLE: Never announce or label the task type, response style, tone, or internal approach (for example, do not write labels such as “Task type,” “Conversational response style,” or “Natural, brief and composed”). Apply style guidance silently. Do not analyze, interpret, grade, or comment on the user's wording, greeting, personality, intelligence, emotions, or intentions unless they explicitly ask you to. Never turn a simple message like 'Hey', 'Hi', 'Okay', or 'Thanks' into an explanation of what that message means; respond naturally and briefly, e.g. 'Hey! What's up?' or 'Anytime.' Keep casual replies to one short sentence by default. Avoid patronizing praise, unsolicited life lessons, overdramatic observations, and phrases that make the user feel examined or judged. Match the user's tone without forced slang. For real questions, answer directly; provide deeper analysis, structured detail, or critique only when requested or genuinely useful. Be respectful, supportive without being condescending, and honest about uncertainty. Do not claim to be Patrick Jane or imitate any actor's exact voice. Never claim to have verified information or performed actions you have not completed. Uploaded files are not automatically included in this request. " + creator_identity + " " + f"Active intelligence mode: {mode}. Mode instructions: {mode_instructions[mode]} " + ("ASSISTANT STYLE: JARVIS. Address the user as Sir when natural. Be disciplined, composed, concise, proactive, and mission-oriented; use polished formal language and brief status-style phrasing when useful. Do not overdo military jargon, bark orders, or sacrifice warmth, accuracy, or safety. Never claim systems/actions are running unless actually true." if st.session_state.assistant_style == "JARVIS" else "ASSISTANT STYLE: Classic. Use natural, friendly, conversational language."))
                 conversation = [system_instruction, "Conversation so far:"]
                 for item in chat["messages"]:
                     speaker = "User" if item["role"] == "user" else "J.A.N.E."
                     conversation.append(f"{speaker}: {item['content']}")
                 conversation.append("J.A.N.E.:")
-                with st.spinner("J.A.N.E. is thinking..."):
-                    result = client.models.generate_content(model="gemini-3.5-flash-lite", contents="\n\n".join(conversation))
+                with st.spinner("J.A.N.E. is thinking and searching the web when useful..."):
+                    result = client.models.generate_content(
+                        model="gemini-3.5-flash-lite",
+                        contents="\n\n".join(conversation),
+                        config=types.GenerateContentConfig(
+                            tools=[types.Tool(google_search=types.GoogleSearch())],
+                        ),
+                    )
                 answer = result.text or "I didn't receive a text response. Please try again."
+                # Append source links when Gemini returns Google Search grounding metadata.
+                grounding = getattr(result, "grounding_metadata", None)
+                grounding_chunks = getattr(grounding, "grounding_chunks", None) if grounding else None
+                source_lines = []
+                seen_source_urls = set()
+                for chunk in grounding_chunks or []:
+                    web_source = getattr(chunk, "web", None)
+                    source_url = getattr(web_source, "uri", None) if web_source else None
+                    source_title = getattr(web_source, "title", None) if web_source else None
+                    if source_url and source_url not in seen_source_urls:
+                        seen_source_urls.add(source_url)
+                        source_lines.append(f"- [{source_title or source_url}]({source_url})")
+                if source_lines:
+                    answer += "\n\n**Sources**\n" + "\n".join(source_lines)
         except Exception as error:
             error_text = str(error).lower()
             status_code = getattr(error, "status_code", None) or getattr(error, "code", None)
@@ -899,7 +958,7 @@ if prompt:
                     else:
                         mode_instructions = {
                             "General": "Use natural, direct conversation. Keep simple answers short and avoid unnecessary headings or analysis.",
-                            "Adaptive": "Identify the task type and adapt the format and depth: conversational, step-by-step, actionable, comparative, or research-focused as appropriate. Ask questions only when essential.",
+                            "Adaptive": "Silently infer what the user needs and adapt naturally. Never announce or label the task type, response style, or internal approach. Prefer natural prose; use steps or structure only when genuinely useful. Ask questions only when essential.",
                             "Thinker": "For complex tasks, check assumptions, alternatives, trade-offs, edge cases, failure points, and calculations. Give a clear conclusion with useful rationale, without revealing private chain-of-thought. Stay concise for simple chat.",
                         }
                         creator_age = 13 + (datetime.now().year - 2026)
@@ -920,7 +979,7 @@ if prompt:
                             "Match the user's tone without forced slang. Answer real questions directly and give deeper analysis only when requested or genuinely useful. "
                             "Be respectful, supportive without condescension, accurate, and honest. Never claim to have performed actions you have not completed. "
                             + creator_identity + " "
-                            + f"Active intelligence mode: {mode}. {mode_instructions.get(mode, mode_instructions['Adaptive'])}"
+                            + f"Active intelligence mode: {mode}. {mode_instructions.get(mode, mode_instructions['Adaptive'])} " + ("ASSISTANT STYLE: JARVIS. Address the user as Sir when natural. Be disciplined, composed, concise, proactive, and mission-oriented; use polished formal language and brief status-style phrasing when useful. Do not overdo military jargon, bark orders, or sacrifice warmth, accuracy, or safety. Never claim systems/actions are running unless actually true." if st.session_state.assistant_style == "JARVIS" else "ASSISTANT STYLE: Classic. Use natural, friendly, conversational language.")
                         )
                         history = []
                         for item in chat["messages"]:
