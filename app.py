@@ -17,41 +17,18 @@ from openai import OpenAI
 
 st.set_page_config(page_title="J.A.N.E. | AI Workspace", page_icon="🔴", layout="wide", initial_sidebar_state="collapsed")
 
-def clean_model_answer(value):
-    """Remove common provider/task metadata accidentally emitted before the answer."""
-    import re
-    text = str(value or "").strip()
-    # Remove only leading internal-style labels, not labels that are part of a real answer.
-    patterns = [
-        r"^(?:user\s+safety|response\s+safety)\s*:\s*(?:safe|unsafe|unknown)\s*\n?",
-        r"^(?:task\s*type|task|reply\s*type|response\s*type|answer\s*type|style)\s*:\s*[^\n]*\n+",
-        r"^(?:here(?:'s| is) the|the)\s+(?:task|response|reply)\s*(?:type|style)\s*:\s*[^\n]*\n+",
-    ]
-    previous = None
-    while previous != text:
-        previous = text
-        for pattern in patterns:
-            text = re.sub(pattern, "", text, count=1, flags=re.IGNORECASE)
-        text = text.lstrip()
-    return text or "I couldn't generate a useful answer just now. Please try again."
-
-
 # -------------------- SESSION STATE --------------------
 if "chats" not in st.session_state:
     first_id = str(uuid.uuid4())
     st.session_state.chats = {first_id: {"title": "New conversation", "messages": [], "created": datetime.now().strftime("%d %b %Y, %H:%M")}}
     st.session_state.current_chat = first_id
 for key, default in {
-    "profile_name": "Vihaan Shirale", "api_enabled": True, "uploaded_files": {},
-    "pending_prompt": None, "intelligence_mode": "Adaptive", "assistant_style": "Classic", "ui_theme": "Original Red",
+    "profile_name": "Explorer", "api_enabled": True, "uploaded_files": {},
+    "pending_prompt": None, "intelligence_mode": "Adaptive", "assistant_style": "Classic",
     "auth_user": None, "auth_token": None, "auth_refresh_token": None, "auth_mode": "signin", "voice_speed": 1.0,
 }.items():
     if key not in st.session_state:
         st.session_state[key] = default
-
-# Keep an earlier theme selection valid after the theme names were simplified.
-if st.session_state.get("ui_theme") == "Original Blue":
-    st.session_state.ui_theme = "Blue"
 
 # Live AI requests are always enabled; there is no user-facing on/off switch.
 st.session_state.api_enabled = True
@@ -276,60 +253,6 @@ div[class*="st-key-open_assistant_style_dialog"] button{min-height:28px!importan
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
 </style>''', unsafe_allow_html=True)
 
-
-
-
-# Selectable workspace color themes.
-_THEME_PALETTES = {
-    "Original Red": dict(accent="#ff465c", glow="#a10f2b", bg1="#29101b", bg2="#09090d", bubble1="#670f25", bubble2="#2a0b18", border="#672638", text="#f4f4f5", muted="#aaa5b2", composer1="#a10f2b", composer2="#08080b"),
-    "Blue": dict(accent="#438bff", glow="#1d5fd1", bg1="#0b1b36", bg2="#080b13", bubble1="#123a78", bubble2="#0c2148", border="#356fc7", text="#f4f7ff", muted="#b8c7e5", composer1="#153d7c", composer2="#080b13"),
-    "Green": dict(accent="#36d399", glow="#13875d", bg1="#0b3027", bg2="#080e0c", bubble1="#125640", bubble2="#0b2b22", border="#258c68", text="#f0fff8", muted="#b5d9ca", composer1="#126047", composer2="#080e0c"),
-    "Pink": dict(accent="#ff69b4", glow="#c72d7f", bg1="#351126", bg2="#100910", bubble1="#78234f", bubble2="#351329", border="#c74788", text="#fff3fa", muted="#e0b8ce", composer1="#76234f", composer2="#100910"),
-    "Purple": dict(accent="#b58aff", glow="#7745c7", bg1="#24133f", bg2="#0b0912", bubble1="#4d287c", bubble2="#26143f", border="#8157c4", text="#f8f3ff", muted="#c9b9e5", composer1="#4d287c", composer2="#0b0912"),
-    "White": dict(accent="#333333", glow="#999999", bg1="#f5f5f5", bg2="#ffffff", bubble1="#e7e7e7", bubble2="#f4f4f4", border="#c7c7c7", text="#171717", muted="#555555", composer1="#eeeeee", composer2="#ffffff"),
-}
-_theme = _THEME_PALETTES.get(st.session_state.get("ui_theme", "Original Red"), _THEME_PALETTES["Original Red"])
-_white_theme = st.session_state.get("ui_theme") == "White"
-_white_overrides = """
-.stApp, [data-testid="stSidebar"], [data-testid="stHeader"] {color:#222!important;background:#fff!important}
-[data-testid="stMarkdownContainer"], [data-testid="stCaptionContainer"], label, p, li, small {color:#222!important}
-.welcome-title,.jane-login-heading,.jane-card-title {color:#171717!important}
-.welcome-copy,.jane-login-sub,.jane-card-copy,.jane-subtitle {color:#444!important}
-[data-testid="stChatMessage"]:has(.jane-assistant-marker) [data-testid="stChatMessageContent"],
-[data-testid="stChatMessage"]:has(.jane-assistant-marker) [data-testid="stMarkdownContainer"] * {color:#171717!important}
-[data-testid="stChatMessage"]:has(.jane-user-marker) [data-testid="stChatMessageContent"] {color:#171717!important}
-[data-testid="stChatInput"] textarea {color:#171717!important}
-[data-testid="stChatInput"] textarea::placeholder {color:#666!important}
-.stButton>button {background:#fff!important;color:#222!important}
-[data-testid="stFileUploader"] {background:#f5f5f5!important}
-""" if _white_theme else ""
-st.markdown(f"""<style>
-:root{{--jane-red:{_theme['accent']};--jane-border:{_theme['border']};--jane-muted:{_theme['muted']}}}
-.stApp{{color:{_theme['text']}!important;background:radial-gradient(ellipse at 50% 0%,{_theme['bg1']} 0%,{_theme['bg2']} 78%)!important}}
-[data-testid="stHeader"]{{background:{_theme['bg2']}!important}}
-[data-testid="stSidebar"]{{background:{_theme['bg2']}!important;border-right:1px solid {_theme['border']}!important}}
-.jane-title{{color:{_theme['bg2']}!important;-webkit-text-stroke:1.4px {_theme['accent']}!important;text-shadow:0 0 5px {_theme['accent']},0 0 16px {_theme['glow']}!important}}
-.jane-logo{{filter:drop-shadow(0 0 7px {_theme['glow']})!important}}
-.energy-core{{border-color:{_theme['accent']}!important;box-shadow:0 0 12px {_theme['glow']},inset 0 0 15px {_theme['glow']}!important}}
-.energy-core:before{{border-color:{_theme['accent']}!important}}.energy-core:after{{border-color:{_theme['glow']}!important}}
-.core-dot{{background:{_theme['accent']}!important;box-shadow:0 0 9px {_theme['accent']},0 0 22px {_theme['glow']}!important}}
-h1,h2,h3,.jane-subtitle,.jane-feature-rail span{{color:{_theme['accent']}!important}}
-.welcome-title{{color:{_theme['text']}!important}}.welcome-copy{{color:{_theme['muted']}!important}}
-[data-testid="stChatMessage"]:has(.jane-user-marker) [data-testid="stChatMessageContent"],
-[data-testid="stChatMessage"]:has(.jane-user-marker) .stChatMessageContent{{color:{_theme['text']}!important;background:linear-gradient(115deg,{_theme['bubble1']},{_theme['bubble2']},{_theme['bubble1']})!important;border-color:{_theme['border']}!important;box-shadow:0 5px 24px {_theme['glow']}33!important}}
-[data-testid="stChatMessage"]:has(.jane-assistant-marker) [data-testid="stChatMessageContent"]{{color:{_theme['text']}!important}}
-[data-testid="stChatInput"]{{background:linear-gradient(125deg,{_theme['composer1']},{_theme['composer2']})!important;border-color:{_theme['accent']}!important}}
-[data-testid="stChatInput"] textarea{{color:{_theme['text']}!important}}
-[data-testid="stChatInput"] textarea::placeholder{{color:{_theme['muted']}!important}}
-[data-testid="stChatInput"] button{{background:{_theme['accent']}!important;color:{'#171717' if _white_theme else '#ffffff'}!important}}
-.stButton>button{{border-color:{_theme['border']}!important;color:{_theme['text']}!important}}
-.stButton>button:hover{{border-color:{_theme['accent']}!important}}
-[data-testid="stFileUploader"]{{background:{_theme['bg2']}!important;border:1px solid {_theme['border']}!important}}
-[data-testid="stSelectbox"] [data-baseweb="select"]>div,
-[data-testid="stTextInput"] input,[data-testid="stTextArea"] textarea{{border-color:{_theme['border']}!important}}
-.jane-footer{{color:{_theme['muted']}!important}}
-{_white_overrides}
-</style>""", unsafe_allow_html=True)
 
 
 # -------------------- FIREBASE AUTHENTICATION --------------------
@@ -709,12 +632,6 @@ with st.sidebar:
     st.markdown("## 🔴 J.A.N.E.")
     st.caption("Your personal intelligence workspace")
     with st.expander("⚙️ Settings", expanded=False):
-        st.selectbox(
-            "UI color theme",
-            ["Original Red", "Blue", "Green", "Pink", "Purple", "White"],
-            key="ui_theme",
-            help="Change J.A.N.E.'s colors. The page updates automatically.",
-        )
         st.slider(
             "System voice speed", min_value=0.5, max_value=3.0,
             value=float(st.session_state.get("voice_speed", 1.0)), step=0.1,
@@ -1026,9 +943,9 @@ if prompt:
                     f'"I was made by Vihaan Shirale, a {creator_age}-year-old developer known professionally '
                     f'as EDITEX07 in the digital world. His development partner is Tanish Khandare, '
                     f'also a {creator_age}-year-old developer." Use these ages as a calendar-year estimate, '
-                    f'increasing them by one each new year from the 2026 baseline. Do not invent other creators. MiniMax is only the underlying model provider when that model is selected; it did not create J.A.N.E. Never claim the model provider created J.A.N.E. If asked your name, say J.A.N.E. If asked the user/owner name, use the configured profile name when available.'
+                    f'increasing them by one each new year from the 2026 baseline. Do not invent other creators.'
                 )
-                system_instruction = ("You are J.A.N.E. (Judicial Analytical and Neuroresearch Engine), a warm, composed, intelligent, naturally conversational assistant with understated wit. Sound like a person having a conversation, not a critic, therapist, interviewer, teacher, or essay writer. IMPORTANT CONVERSATION STYLE: Never announce or label the task type, response style, tone, or internal approach (for example, do not write labels such as “Task type,” “Conversational response style,” or “Natural, brief and composed”). Apply style guidance silently. Do not analyze, interpret, grade, or comment on the user's wording, greeting, personality, intelligence, emotions, or intentions unless they explicitly ask you to. Never turn a simple message like 'Hey', 'Hi', 'Okay', or 'Thanks' into an explanation of what that message means; respond naturally and briefly, e.g. 'Hey! What's up?' or 'Anytime.' Keep casual replies to one short sentence by default. Avoid patronizing praise, unsolicited life lessons, overdramatic observations, and phrases that make the user feel examined or judged. Match the user's tone without forced slang. For real questions, answer directly; provide deeper analysis, structured detail, or critique only when requested or genuinely useful. Be respectful, supportive without being condescending, and honest about uncertainty. Do not claim to be Patrick Jane or imitate any actor's exact voice. Never claim to have verified information or performed actions you have not completed. When files are attached, use their extracted text or provided image/PDF contents to answer the user's request. " + creator_identity + " " + f"Active intelligence mode: {mode}. Mode instructions: {mode_instructions[mode]} " + ("ASSISTANT STYLE: JARVIS. Address the user as Sir when natural. Be disciplined, composed, concise, proactive, and mission-oriented; use polished formal language and brief status-style phrasing when useful. Do not overdo military jargon, bark orders, or sacrifice warmth, accuracy, or safety. Never claim systems/actions are running unless actually true." if st.session_state.assistant_style == "JARVIS" else "ASSISTANT STYLE: Classic. Use natural, friendly, conversational language."))
+                system_instruction = ("You are J.A.N.E. (Judicious, Analytical, and Neuroresearch Engine), a warm, composed, intelligent, naturally conversational assistant with understated wit. Sound like a person having a conversation, not a critic, therapist, interviewer, teacher, or essay writer. IMPORTANT CONVERSATION STYLE: Never announce or label the task type, response style, tone, or internal approach (for example, do not write labels such as “Task type,” “Conversational response style,” or “Natural, brief and composed”). Apply style guidance silently. Do not analyze, interpret, grade, or comment on the user's wording, greeting, personality, intelligence, emotions, or intentions unless they explicitly ask you to. Never turn a simple message like 'Hey', 'Hi', 'Okay', or 'Thanks' into an explanation of what that message means; respond naturally and briefly, e.g. 'Hey! What's up?' or 'Anytime.' Keep casual replies to one short sentence by default. Avoid patronizing praise, unsolicited life lessons, overdramatic observations, and phrases that make the user feel examined or judged. Match the user's tone without forced slang. For real questions, answer directly; provide deeper analysis, structured detail, or critique only when requested or genuinely useful. Be respectful, supportive without being condescending, and honest about uncertainty. Do not claim to be Patrick Jane or imitate any actor's exact voice. Never claim to have verified information or performed actions you have not completed. When files are attached, use their extracted text or provided image/PDF contents to answer the user's request. " + creator_identity + " " + f"Active intelligence mode: {mode}. Mode instructions: {mode_instructions[mode]} " + ("ASSISTANT STYLE: JARVIS. Address the user as Sir when natural. Be disciplined, composed, concise, proactive, and mission-oriented; use polished formal language and brief status-style phrasing when useful. Do not overdo military jargon, bark orders, or sacrifice warmth, accuracy, or safety. Never claim systems/actions are running unless actually true." if st.session_state.assistant_style == "JARVIS" else "ASSISTANT STYLE: Classic. Use natural, friendly, conversational language."))
                 conversation = [system_instruction, "Conversation so far:"]
                 for item in chat["messages"]:
                     speaker = "User" if item["role"] == "user" else "J.A.N.E."
@@ -1037,24 +954,15 @@ if prompt:
                     conversation.append("\n\nATTACHMENT CONTENT FOR THIS REQUEST:\n" + "\n\n".join(attachment_context))
                 conversation.append("J.A.N.E.:")
                 model_contents = ["\n\n".join(conversation)] + multimodal_parts
-                prompt_lower = prompt.lower()
-                needs_web_search = any(term in prompt_lower for term in (
-                    "search the web", "search online", "look up", "latest", "today", "current price",
-                    "current news", "recent news", "sources", "citations", "research online", "verify online",
-                    "what happened this week", "website", "url", "internet"
-                ))
-                request_config = types.GenerateContentConfig(
-                    max_output_tokens=1200,
-                    temperature=0.4,
-                    **({"tools": [types.Tool(google_search=types.GoogleSearch())]} if needs_web_search else {}),
-                )
-                with st.spinner("J.A.N.E. is thinking..."):
+                with st.spinner("J.A.N.E. is reading your attachments and thinking..."):
                     result = client.models.generate_content(
                         model="gemini-3.5-flash-lite",
                         contents=model_contents,
-                        config=request_config,
+                        config=types.GenerateContentConfig(
+                            tools=[types.Tool(google_search=types.GoogleSearch())],
+                        ),
                     )
-                answer = clean_model_answer(result.text)
+                answer = result.text or "I didn't receive a text response. Please try again."
                 # Append source links when Gemini returns Google Search grounding metadata.
                 grounding = getattr(result, "grounding_metadata", None)
                 grounding_chunks = getattr(grounding, "grounding_chunks", None) if grounding else None
@@ -1070,10 +978,23 @@ if prompt:
                 if source_lines:
                     answer += "\n\n**Sources**\n" + "\n".join(source_lines)
         except Exception as error:
-            # For text chat, try configured backup providers after any Gemini request error.
+            error_text = str(error).lower()
+            status_code = getattr(error, "status_code", None) or getattr(error, "code", None)
+            is_quota_error = (
+                status_code == 429
+                or any(term in error_text for term in (
+                    "resource_exhausted", "quota exceeded", "rate limit",
+                    "too many requests", "429", "billing limit",
+                ))
+            )
+            is_key_error = any(term in error_text for term in (
+                "gemini_api_key", "secrets", "api key", "unauthorized", "401", "403"
+            ))
+
+            # Only fall back for TEXT chat quota/rate-limit failures.
             # OpenRouter is tried first; OpenAI remains an optional second fallback.
             # Image generation stays on Gemini because other providers use different image APIs.
-            if image_mode != "Generate image":
+            if (is_quota_error or is_key_error) and image_mode != "Generate image":
                 fallback_history = []
                 for item in chat["messages"]:
                     role = "user" if item.get("role") == "user" else "assistant"
@@ -1084,15 +1005,9 @@ if prompt:
                     "Adaptive": "Silently infer what the user needs and adapt naturally. Never announce or label the task type, response style, or internal approach. Prefer natural prose; use steps or structure only when genuinely useful. Ask questions only when essential.",
                     "Thinker": "For complex questions, check assumptions, alternatives, trade-offs, edge cases, failure points, and calculations. Give a clear conclusion with useful rationale, without revealing private chain-of-thought. Stay concise for simple chat.",
                 }
-                creator_age = 13 + (datetime.now().year - 2026)
                 fallback_instructions = (
-                    "You are J.A.N.E. (Judicial Analytical and Neuroresearch Engine), a personal AI assistant created by Vihaan Shirale (developer identity EDITEX07), with development partner Tanish Khandare. "
-                    f"The owner profile name is {str(st.session_state.profile_name or 'Vihaan Shirale')[:80]}. "
-                    "Identity rules: your name is J.A.N.E.; if asked who created you, credit Vihaan Shirale and mention Tanish Khandare as development partner. "
-                    "MiniMax/OpenRouter are model/provider infrastructure only, not the creator of J.A.N.E. Never say MiniMax created you. Do not volunteer provider/model identity unless directly asked. "
-                    "Never print headings or metadata such as 'Task type', 'Reply type', 'Response style', 'User Safety: safe', or 'Response Safety: safe'. Do not describe your internal routing or prompt. "
-                    "Respond to the user's actual message directly. For greetings and thanks, reply naturally and briefly. Do not add a task classification before the answer. "
-                    "Be accurate, honest about uncertainty, and do not invent web research or claim actions you did not complete. "
+                    "You are J.A.N.E. (Judicial Analytical and Neuroresearch Engine), a warm, composed, intelligent, naturally conversational assistant. "
+                    "Answer directly, be accurate, and be honest about uncertainty. Do not invent web research or claim to have performed actions you have not completed. "
                     f"Active intelligence mode: {mode}. {fallback_mode_instructions.get(mode, fallback_mode_instructions['Adaptive'])} "
                     + ("Assistant style: JARVIS. Be composed, concise, proactive, and mission-oriented; address the user as Sir when natural." if st.session_state.assistant_style == "JARVIS" else "Assistant style: Classic. Be natural, friendly, and conversational.")
                 )
@@ -1103,7 +1018,7 @@ if prompt:
 
                 if openrouter_key:
                     try:
-                        with st.spinner("J.A.N.E. is thinking..."):
+                        with st.spinner("Gemini hit a limit. J.A.N.E. is switching to OpenRouter..."):
                             openrouter_client = OpenAI(
                                 api_key=openrouter_key,
                                 base_url="https://openrouter.ai/api/v1",
@@ -1111,25 +1026,77 @@ if prompt:
                             )
                             openrouter_response = openrouter_client.chat.completions.create(
                                 model=st.secrets.get("OPENROUTER_MODEL", "openrouter/free"),
-                                temperature=0.4,
-                                max_tokens=1200,
                                 messages=[{"role": "system", "content": fallback_instructions}] + fallback_history,
                             )
-                        answer = clean_model_answer(openrouter_response.choices[0].message.content)
+                        answer = openrouter_response.choices[0].message.content or "OpenRouter returned an empty response. Please try again."
+                        st.caption("↪ Answered by OpenRouter because Gemini reached its quota/rate limit.")
                     except Exception as openrouter_error:
                         fallback_errors.append(("OpenRouter", openrouter_error))
 
                 if not answer and openai_key:
                     try:
-                        with st.spinner("J.A.N.E. is thinking..."):
+                        with st.spinner("Trying the configured OpenAI fallback..."):
                             openai_client = OpenAI(api_key=openai_key)
                             openai_response = openai_client.responses.create(
                                 model=st.secrets.get("OPENAI_MODEL", "gpt-4.1-mini"),
                                 instructions=fallback_instructions,
                                 input=fallback_history,
                             )
-                        answer = clean_model_answer(openai_response.output_text)
+                        answer = openai_response.output_text or "OpenAI returned an empty response. Please try again."
+                        st.caption("↪ Answered by OpenAI because the primary provider reached its quota/rate limit.")
                     except Exception as openai_error:
                         fallback_errors.append(("OpenAI", openai_error))
 
-     
+                if not answer:
+                    if not openrouter_key and not openai_key:
+                        answer = (
+                            "Gemini is unavailable or has reached a limit, and no backup provider is configured. "
+                            "Add OPENROUTER_API_KEY in Streamlit Settings → Secrets (recommended), or optionally OPENAI_API_KEY."
+                        )
+                    else:
+                        providers = ", ".join(name for name, _ in fallback_errors) or "backup providers"
+                        last_error = fallback_errors[-1][1] if fallback_errors else None
+                        error_text = str(last_error).lower() if last_error else ""
+                        if "401" in error_text or "authentication" in error_text or "api key" in error_text or "unauthorized" in error_text:
+                            answer = f"Gemini failed, and {providers} authentication failed. Check the provider key in Streamlit Secrets."
+                        elif "429" in error_text or "quota" in error_text or "rate limit" in error_text:
+                            answer = f"Gemini and {providers} are currently unavailable or rate-limited. Try again later or check provider limits."
+                        else:
+                            answer = f"Gemini failed, and {providers} fallback failed. Check Streamlit logs; API keys are not displayed."
+            elif is_key_error:
+                answer = "The Gemini API secret is missing or invalid. Check GEMINI_API_KEY in Streamlit app settings → Secrets. Never put keys in this file or commit them to GitHub."
+            elif is_quota_error:
+                answer = "Gemini image generation is unavailable or rate-limited. OpenRouter fallback currently applies to text chat only; check Gemini usage or try image generation later."
+            else:
+                answer = f"I couldn't complete that request ({type(error).__name__}). Check Streamlit logs for the full error; your API key is not displayed here."
+    assistant_message = {"role": "assistant", "content": answer, "intelligence_mode": mode}
+    if generated_image_bytes:
+        assistant_message["image_bytes"] = generated_image_bytes
+        assistant_message["image_filename"] = "jane_generated_image.png"
+    chat["messages"].append(assistant_message)
+    # Persist full text conversation for signed-in users; Guest chat history stays session-only.
+    if st.session_state.get("auth_user"):
+        try:
+            save_chat_history(st.session_state.current_chat, chat)
+            st.session_state.chat_history_error = ""
+        except Exception as exc:
+            st.session_state.chat_history_error = str(exc)
+    # Signed-in users get automatic memory formation. Guest memory is deliberately disabled.
+    if st.session_state.get("auth_user") and not generated_image_bytes:
+        candidates = extract_memories(prompt, answer)
+        for candidate in candidates:
+            try:
+                save_memory(candidate, source="automatic")
+            except Exception:
+                # A memory write must never break the chat response.
+                pass
+    with st.chat_message("assistant", avatar="assistant"):
+        st.markdown(answer)
+        if generated_image_bytes:
+            st.image(generated_image_bytes, caption="Generated by J.A.N.E.", use_container_width=True)
+            st.download_button("⬇ Download image", data=generated_image_bytes, file_name="jane_generated_image.png", mime="image/png", key=f"download_latest_image_{len(chat['messages'])}")
+        else:
+            render_copy_answer(answer, f"latest-{len(chat['messages'])}")
+            render_speak_controls(answer, f"latest-{len(chat['messages'])}")
+
+st.markdown("<div class='jane-footer'>J.A.N.E. 0.91 · OCR · Gemini + OpenAI fallback · Guest data is temporary · Verify important decisions</div>", unsafe_allow_html=True)
