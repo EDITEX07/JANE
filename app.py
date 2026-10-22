@@ -829,23 +829,8 @@ image_mode = st.selectbox(
     help="Choose Generate image to create an actual image from your description.",
     label_visibility="collapsed",
 )
-submitted_prompt = st.chat_input(
-    "Describe an image…" if image_mode == "Generate image" else "Message J.A.N.E....",
-    key="jane_chat_input",
-    accept_file="multiple",
-    file_type=["txt", "csv", "xlsx", "pdf", "json", "md", "png", "jpg", "jpeg", "webp"],
-)
-# Streamlit renders a built-in + attachment control inside the composer when accept_file is enabled.
-prompt = None
-if submitted_prompt:
-    prompt_text = (getattr(submitted_prompt, "text", "") or "").strip()
-    selected_files = list(getattr(submitted_prompt, "files", []) or [])
-    for file in selected_files:
-        st.session_state.uploaded_files[file.name] = {
-            "name": file.name, "data": file.getvalue(), "type": file.type, "size": file.size
-        }
-    if prompt_text or selected_files:
-        prompt = prompt_text or "Please inspect the attached file(s) and help me understand their contents."
+submitted_prompt = st.chat_input("Describe an image…" if image_mode == "Generate image" else "Message J.A.N.E....", key="jane_chat_input")
+prompt = submitted_prompt.strip() if submitted_prompt else None
 if st.session_state.pending_prompt:
     prompt = st.session_state.pending_prompt; st.session_state.pending_prompt = None
 
@@ -870,35 +855,6 @@ if prompt:
             st.session_state.chat_history_error = str(exc)
         st.rerun()
     attachment_names = list(st.session_state.uploaded_files.keys())
-    # Convert attached files into actual model input. Text and tables are extracted locally;
-    # PDFs and images are passed to Gemini as binary parts so the model can inspect them.
-    attachment_context = []
-    multimodal_parts = []
-    for filename, file_info in st.session_state.uploaded_files.items():
-        raw_data = file_info.get("data", b"")
-        ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
-        try:
-            if ext in ("txt", "md", "json"):
-                extracted = raw_data.decode("utf-8", errors="replace")
-                attachment_context.append(f"--- ATTACHED FILE: {filename} ---\n{extracted[:30000]}")
-            elif ext == "csv":
-                frame = pd.read_csv(io.BytesIO(raw_data))
-                attachment_context.append(f"--- ATTACHED CSV: {filename} ---\nRows: {len(frame)}; columns: {', '.join(map(str, frame.columns))}\n{frame.head(300).to_csv(index=False)}")
-            elif ext == "xlsx":
-                workbook = pd.read_excel(io.BytesIO(raw_data), sheet_name=None)
-                pieces = []
-                for sheet_name, frame in workbook.items():
-                    pieces.append(f"Sheet: {sheet_name} (rows: {len(frame)})\n{frame.head(200).to_csv(index=False)}")
-                attachment_context.append(f"--- ATTACHED EXCEL WORKBOOK: {filename} ---\n" + "\n".join(pieces))
-            elif ext == "pdf":
-                multimodal_parts.append(types.Part.from_bytes(data=raw_data, mime_type="application/pdf"))
-                attachment_context.append(f"Attached PDF file: {filename}. Inspect the provided PDF content directly.")
-            elif ext in ("png", "jpg", "jpeg", "webp"):
-                mime = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp"}[ext]
-                multimodal_parts.append(types.Part.from_bytes(data=raw_data, mime_type=mime))
-                attachment_context.append(f"Attached image file: {filename}. Inspect the provided image directly.")
-        except Exception as file_error:
-            attachment_context.append(f"File {filename} could not be extracted locally ({type(file_error).__name__}). Tell the user which file could not be read.")
     mode = st.session_state.intelligence_mode
     chat["messages"].append({"role": "user", "content": prompt, "attachments": attachment_names, "intelligence_mode": mode})
     update_chat_title(chat, prompt)
@@ -945,19 +901,16 @@ if prompt:
                     f'also a {creator_age}-year-old developer." Use these ages as a calendar-year estimate, '
                     f'increasing them by one each new year from the 2026 baseline. Do not invent other creators.'
                 )
-                system_instruction = ("You are J.A.N.E. (Judicious, Analytical, and Neuroresearch Engine), a warm, composed, intelligent, naturally conversational assistant with understated wit. Sound like a person having a conversation, not a critic, therapist, interviewer, teacher, or essay writer. IMPORTANT CONVERSATION STYLE: Never announce or label the task type, response style, tone, or internal approach (for example, do not write labels such as “Task type,” “Conversational response style,” or “Natural, brief and composed”). Apply style guidance silently. Do not analyze, interpret, grade, or comment on the user's wording, greeting, personality, intelligence, emotions, or intentions unless they explicitly ask you to. Never turn a simple message like 'Hey', 'Hi', 'Okay', or 'Thanks' into an explanation of what that message means; respond naturally and briefly, e.g. 'Hey! What's up?' or 'Anytime.' Keep casual replies to one short sentence by default. Avoid patronizing praise, unsolicited life lessons, overdramatic observations, and phrases that make the user feel examined or judged. Match the user's tone without forced slang. For real questions, answer directly; provide deeper analysis, structured detail, or critique only when requested or genuinely useful. Be respectful, supportive without being condescending, and honest about uncertainty. Do not claim to be Patrick Jane or imitate any actor's exact voice. Never claim to have verified information or performed actions you have not completed. When files are attached, use their extracted text or provided image/PDF contents to answer the user's request. " + creator_identity + " " + f"Active intelligence mode: {mode}. Mode instructions: {mode_instructions[mode]} " + ("ASSISTANT STYLE: JARVIS. Address the user as Sir when natural. Be disciplined, composed, concise, proactive, and mission-oriented; use polished formal language and brief status-style phrasing when useful. Do not overdo military jargon, bark orders, or sacrifice warmth, accuracy, or safety. Never claim systems/actions are running unless actually true." if st.session_state.assistant_style == "JARVIS" else "ASSISTANT STYLE: Classic. Use natural, friendly, conversational language."))
+                system_instruction = ("You are J.A.N.E. (Judicious, Analytical, and Neuroresearch Engine), a warm, composed, intelligent, naturally conversational assistant with understated wit. Sound like a person having a conversation, not a critic, therapist, interviewer, teacher, or essay writer. IMPORTANT CONVERSATION STYLE: Never announce or label the task type, response style, tone, or internal approach (for example, do not write labels such as “Task type,” “Conversational response style,” or “Natural, brief and composed”). Apply style guidance silently. Do not analyze, interpret, grade, or comment on the user's wording, greeting, personality, intelligence, emotions, or intentions unless they explicitly ask you to. Never turn a simple message like 'Hey', 'Hi', 'Okay', or 'Thanks' into an explanation of what that message means; respond naturally and briefly, e.g. 'Hey! What's up?' or 'Anytime.' Keep casual replies to one short sentence by default. Avoid patronizing praise, unsolicited life lessons, overdramatic observations, and phrases that make the user feel examined or judged. Match the user's tone without forced slang. For real questions, answer directly; provide deeper analysis, structured detail, or critique only when requested or genuinely useful. Be respectful, supportive without being condescending, and honest about uncertainty. Do not claim to be Patrick Jane or imitate any actor's exact voice. Never claim to have verified information or performed actions you have not completed. Uploaded files are not automatically included in this request. " + creator_identity + " " + f"Active intelligence mode: {mode}. Mode instructions: {mode_instructions[mode]} " + ("ASSISTANT STYLE: JARVIS. Address the user as Sir when natural. Be disciplined, composed, concise, proactive, and mission-oriented; use polished formal language and brief status-style phrasing when useful. Do not overdo military jargon, bark orders, or sacrifice warmth, accuracy, or safety. Never claim systems/actions are running unless actually true." if st.session_state.assistant_style == "JARVIS" else "ASSISTANT STYLE: Classic. Use natural, friendly, conversational language."))
                 conversation = [system_instruction, "Conversation so far:"]
                 for item in chat["messages"]:
                     speaker = "User" if item["role"] == "user" else "J.A.N.E."
                     conversation.append(f"{speaker}: {item['content']}")
-                if attachment_context:
-                    conversation.append("\n\nATTACHMENT CONTENT FOR THIS REQUEST:\n" + "\n\n".join(attachment_context))
                 conversation.append("J.A.N.E.:")
-                model_contents = ["\n\n".join(conversation)] + multimodal_parts
-                with st.spinner("J.A.N.E. is reading your attachments and thinking..."):
+                with st.spinner("J.A.N.E. is thinking and searching the web when useful..."):
                     result = client.models.generate_content(
                         model="gemini-3.5-flash-lite",
-                        contents=model_contents,
+                        contents="\n\n".join(conversation),
                         config=types.GenerateContentConfig(
                             tools=[types.Tool(google_search=types.GoogleSearch())],
                         ),
@@ -992,81 +945,67 @@ if prompt:
             ))
 
             # Only fall back for TEXT chat quota/rate-limit failures.
-            # OpenRouter is tried first; OpenAI remains an optional second fallback.
-            # Image generation stays on Gemini because other providers use different image APIs.
-            if (is_quota_error or is_key_error) and image_mode != "Generate image":
-                fallback_history = []
-                for item in chat["messages"]:
-                    role = "user" if item.get("role") == "user" else "assistant"
-                    fallback_history.append({"role": role, "content": item.get("content", "")})
-
-                fallback_mode_instructions = {
-                    "General": "Use natural, direct conversation. Keep simple answers short and avoid unnecessary headings or analysis.",
-                    "Adaptive": "Silently infer what the user needs and adapt naturally. Never announce or label the task type, response style, or internal approach. Prefer natural prose; use steps or structure only when genuinely useful. Ask questions only when essential.",
-                    "Thinker": "For complex questions, check assumptions, alternatives, trade-offs, edge cases, failure points, and calculations. Give a clear conclusion with useful rationale, without revealing private chain-of-thought. Stay concise for simple chat.",
-                }
-                fallback_instructions = (
-                    "You are J.A.N.E. (Judicial Analytical and Neuroresearch Engine), a warm, composed, intelligent, naturally conversational assistant. "
-                    "Answer directly, be accurate, and be honest about uncertainty. Do not invent web research or claim to have performed actions you have not completed. "
-                    f"Active intelligence mode: {mode}. {fallback_mode_instructions.get(mode, fallback_mode_instructions['Adaptive'])} "
-                    + ("Assistant style: JARVIS. Be composed, concise, proactive, and mission-oriented; address the user as Sir when natural." if st.session_state.assistant_style == "JARVIS" else "Assistant style: Classic. Be natural, friendly, and conversational.")
-                )
-                openrouter_key = st.secrets.get("OPENROUTER_API_KEY", "")
-                openai_key = st.secrets.get("OPENAI_API_KEY", "")
-                fallback_errors = []
-                answer = ""
-
-                if openrouter_key:
-                    try:
-                        with st.spinner("Gemini hit a limit. J.A.N.E. is switching to OpenRouter..."):
-                            openrouter_client = OpenAI(
-                                api_key=openrouter_key,
-                                base_url="https://openrouter.ai/api/v1",
-                                default_headers={"X-Title": "J.A.N.E. AI Workspace"},
-                            )
-                            openrouter_response = openrouter_client.chat.completions.create(
-                                model=st.secrets.get("OPENROUTER_MODEL", "openrouter/free"),
-                                messages=[{"role": "system", "content": fallback_instructions}] + fallback_history,
-                            )
-                        answer = openrouter_response.choices[0].message.content or "OpenRouter returned an empty response. Please try again."
-                        st.caption("↪ Answered by OpenRouter because Gemini reached its quota/rate limit.")
-                    except Exception as openrouter_error:
-                        fallback_errors.append(("OpenRouter", openrouter_error))
-
-                if not answer and openai_key:
-                    try:
-                        with st.spinner("Trying the configured OpenAI fallback..."):
-                            openai_client = OpenAI(api_key=openai_key)
-                            openai_response = openai_client.responses.create(
-                                model=st.secrets.get("OPENAI_MODEL", "gpt-4.1-mini"),
-                                instructions=fallback_instructions,
-                                input=fallback_history,
-                            )
-                        answer = openai_response.output_text or "OpenAI returned an empty response. Please try again."
-                        st.caption("↪ Answered by OpenAI because the primary provider reached its quota/rate limit.")
-                    except Exception as openai_error:
-                        fallback_errors.append(("OpenAI", openai_error))
-
-                if not answer:
-                    if not openrouter_key and not openai_key:
+            # Image generation is left on Gemini because OpenAI image generation
+            # requires a separate image API flow and should not be silently substituted.
+            if is_quota_error and image_mode != "Generate image":
+                try:
+                    openai_key = st.secrets.get("OPENAI_API_KEY", "")
+                    if not openai_key:
                         answer = (
-                            "Gemini is unavailable or has reached a limit, and no backup provider is configured. "
-                            "Add OPENROUTER_API_KEY in Streamlit Settings → Secrets (recommended), or optionally OPENAI_API_KEY."
+                            "Gemini has reached a quota/rate limit, and automatic fallback "
+                            "is not configured yet. Add OPENAI_API_KEY in Streamlit app settings → Secrets."
                         )
                     else:
-                        providers = ", ".join(name for name, _ in fallback_errors) or "backup providers"
-                        last_error = fallback_errors[-1][1] if fallback_errors else None
-                        error_text = str(last_error).lower() if last_error else ""
-                        if "401" in error_text or "authentication" in error_text or "api key" in error_text or "unauthorized" in error_text:
-                            answer = f"Gemini failed, and {providers} authentication failed. Check the provider key in Streamlit Secrets."
-                        elif "429" in error_text or "quota" in error_text or "rate limit" in error_text:
-                            answer = f"Gemini and {providers} are currently unavailable or rate-limited. Try again later or check provider limits."
-                        else:
-                            answer = f"Gemini failed, and {providers} fallback failed. Check Streamlit logs; API keys are not displayed."
+                        mode_instructions = {
+                            "General": "Use natural, direct conversation. Keep simple answers short and avoid unnecessary headings or analysis.",
+                            "Adaptive": "Silently infer what the user needs and adapt naturally. Never announce or label the task type, response style, or internal approach. Prefer natural prose; use steps or structure only when genuinely useful. Ask questions only when essential.",
+                            "Thinker": "For complex tasks, check assumptions, alternatives, trade-offs, edge cases, failure points, and calculations. Give a clear conclusion with useful rationale, without revealing private chain-of-thought. Stay concise for simple chat.",
+                        }
+                        creator_age = 13 + (datetime.now().year - 2026)
+                        creator_identity = (
+                            f"If asked who made, created, or developed you, answer clearly and consistently: "
+                            f'"I was made by Vihaan Shirale, a {creator_age}-year-old developer known professionally '
+                            f'as EDITEX07 in the digital world. His development partner is Tanish Khandare, '
+                            f'also a {creator_age}-year-old developer." Use these ages as a calendar-year estimate, '
+                            f'increasing them by one each new year from the 2026 baseline. Do not invent other creators.'
+                        )
+                        system_instruction = (
+                            "You are J.A.N.E. (Judicious, Analytical, and Neuroresearch Engine), "
+                            "a warm, composed, intelligent, naturally conversational assistant with understated wit. "
+                            "Sound like a person having a conversation, not a critic, therapist, interviewer, teacher, or essay writer. "
+                            "Do not analyze, interpret, grade, or comment on the user's wording, greetings, personality, intelligence, emotions, or intentions unless explicitly asked. "
+                            "Never turn simple messages like 'Hey', 'Hi', 'Okay', or 'Thanks' into explanations; respond naturally and briefly, such as 'Hey! What's up?' or 'Anytime.' "
+                            "Keep casual replies to one short sentence by default. Avoid patronizing praise, unsolicited life lessons, overdramatic observations, and anything that makes the user feel examined or judged. "
+                            "Match the user's tone without forced slang. Answer real questions directly and give deeper analysis only when requested or genuinely useful. "
+                            "Be respectful, supportive without condescension, accurate, and honest. Never claim to have performed actions you have not completed. "
+                            + creator_identity + " "
+                            + f"Active intelligence mode: {mode}. {mode_instructions.get(mode, mode_instructions['Adaptive'])} " + ("ASSISTANT STYLE: JARVIS. Address the user as Sir when natural. Be disciplined, composed, concise, proactive, and mission-oriented; use polished formal language and brief status-style phrasing when useful. Do not overdo military jargon, bark orders, or sacrifice warmth, accuracy, or safety. Never claim systems/actions are running unless actually true." if st.session_state.assistant_style == "JARVIS" else "ASSISTANT STYLE: Classic. Use natural, friendly, conversational language.")
+                        )
+                        history = []
+                        for item in chat["messages"]:
+                            role = "user" if item.get("role") == "user" else "assistant"
+                            history.append({"role": role, "content": item.get("content", "")})
+                        with st.spinner("Gemini hit a limit. J.A.N.E. is switching to OpenAI..."):
+                            openai_client = OpenAI(api_key=openai_key)
+                            response = openai_client.responses.create(
+                                model=st.secrets.get("OPENAI_MODEL", "gpt-4.1-mini"),
+                                instructions=system_instruction,
+                                input=history,
+                            )
+                        answer = response.output_text or "OpenAI returned an empty response. Please try again."
+                        st.caption("↪ Answered by OpenAI because Gemini reached its quota/rate limit.")
+                except Exception as fallback_error:
+                    fallback_text = str(fallback_error).lower()
+                    if "401" in fallback_text or "api key" in fallback_text or "authentication" in fallback_text:
+                        answer = "Gemini reached its quota, but OpenAI fallback authentication failed. Check OPENAI_API_KEY in Streamlit Secrets."
+                    elif "429" in fallback_text or "quota" in fallback_text or "rate limit" in fallback_text:
+                        answer = "Both Gemini and OpenAI appear to be limited right now. Check both providers' usage limits and try again later."
+                    else:
+                        answer = f"Gemini hit its quota and OpenAI fallback failed ({type(fallback_error).__name__}). Check Streamlit logs; API keys are not shown."
             elif is_key_error:
                 answer = "The Gemini API secret is missing or invalid. Check GEMINI_API_KEY in Streamlit app settings → Secrets. Never put keys in this file or commit them to GitHub."
             elif is_quota_error:
-                answer = "Gemini image generation is unavailable or rate-limited. OpenRouter fallback currently applies to text chat only; check Gemini usage or try image generation later."
+                answer = "Gemini image generation reached a quota/rate limit. Automatic OpenAI fallback currently applies to text chat only; check Gemini usage or try image generation later."
             else:
                 answer = f"I couldn't complete that request ({type(error).__name__}). Check Streamlit logs for the full error; your API key is not displayed here."
     assistant_message = {"role": "assistant", "content": answer, "intelligence_mode": mode}
