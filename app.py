@@ -868,6 +868,45 @@ image_mode = st.selectbox(
     help="Choose Generate image to create an actual image from your description.",
     label_visibility="collapsed",
 )
+
+# Voice input: record a message, transcribe it with Gemini, then send it through
+# the same prompt pipeline used by typed messages. This is push-to-talk, not
+# an always-listening live audio session.
+with st.expander("🎙️ Speak to J.A.N.E.", expanded=False):
+    voice_audio = st.audio_input(
+        "Record your message",
+        sample_rate=16000,
+        key="jane_voice_recording",
+        help="Tap the microphone, speak, stop recording, then press Transcribe & send.",
+    )
+    if st.button("🎙️ Transcribe & send", key="jane_transcribe_send", use_container_width=True):
+        if voice_audio is None:
+            st.warning("Record a voice message first.")
+        else:
+            try:
+                with st.spinner("J.A.N.E. is listening to your recording…"):
+                    voice_client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
+                    transcription = voice_client.models.generate_content(
+                        model="gemini-3.5-flash-lite",
+                        contents=[
+                            "Transcribe the speech in this audio exactly as spoken. "
+                            "Return only the transcribed words, with punctuation. "
+                            "Do not answer the speaker or add commentary.",
+                            types.Part.from_bytes(data=voice_audio.getvalue(), mime_type="audio/wav"),
+                        ],
+                    )
+                transcript_text = (transcription.text or "").strip()
+                if transcript_text:
+                    st.session_state.pending_prompt = transcript_text
+                    st.rerun()
+                else:
+                    st.warning("I couldn't detect speech in that recording. Please try again.")
+            except Exception as voice_error:
+                st.error(
+                    f"Voice transcription failed ({type(voice_error).__name__}). "
+                    "Check GEMINI_API_KEY in Streamlit Secrets and try again."
+                )
+
 submitted_prompt = st.chat_input("Describe an image…" if image_mode == "Generate image" else "Message J.A.N.E....", key="jane_chat_input")
 prompt = submitted_prompt.strip() if submitted_prompt else None
 if st.session_state.pending_prompt:
