@@ -23,7 +23,7 @@ if "chats" not in st.session_state:
     st.session_state.chats = {first_id: {"title": "New conversation", "messages": [], "created": datetime.now().strftime("%d %b %Y, %H:%M")}}
     st.session_state.current_chat = first_id
 for key, default in {
-    "profile_name": "Explorer", "api_enabled": True, "uploaded_files": {},
+    "profile_name": "Explorer", "api_enabled": True, "uploaded_files": {}, "ui_theme": "Red",
     "pending_prompt": None, "intelligence_mode": "Adaptive", "assistant_style": "Classic",
     "auth_user": None, "auth_token": None, "auth_refresh_token": None, "auth_mode": "signin", "voice_speed": 1.0,
 }.items():
@@ -251,6 +251,43 @@ div[class*="st-key-open_assistant_style_dialog"] button{min-height:28px!importan
 .stButton>button{min-height:42px;border-radius:12px;border:1px solid var(--jane-border);background:#211923;color:#f4f4f5;transition:border-color .2s ease}.stButton>button:hover{border-color:var(--jane-red);color:#fff}[data-testid="stFileUploader"]{background:rgba(21,19,26,.85);border-radius:14px}h1,h2,h3{color:#ff5267}p,label,li{overflow-wrap:anywhere}.jane-footer{color:#898491;font-size:11px;text-align:center;padding:12px 4px 5px}
 @media(max-width:768px){.block-container{padding:.7rem .65rem 130px!important;max-width:100%}.jane-logo{width:130px}.jane-subtitle{font-size:9px;letter-spacing:2px}.core-wrap{height:75px;margin:8px auto 15px}.energy-core{width:58px;height:58px}[data-testid="stChatInput"]{border-radius:20px!important;padding:38px 12px 8px!important;min-height:112px!important;max-height:156px!important}div[class*="st-key-open_intelligence_dialog"]{left:24px!important;bottom:169px!important;max-width:180px!important}div[class*="st-key-open_assistant_style_dialog"]{left:190px!important;bottom:169px!important;max-width:145px!important}.stButton>button{min-height:44px;font-size:14px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
+</style>''', unsafe_allow_html=True)
+
+
+
+# -------------------- UI COLOR THEMES --------------------
+THEMES = {
+    "Red":    {"accent": "#ff465c", "bright": "#ff7182", "glow": "255,70,92", "deep": "#5a1023", "bubble": "103,15,37"},
+    "Blue":   {"accent": "#4da3ff", "bright": "#83c0ff", "glow": "77,163,255", "deep": "#102b52", "bubble": "15,43,83"},
+    "Green":  {"accent": "#35d07f", "bright": "#7af0ae", "glow": "53,208,127", "deep": "#0e422d", "bubble": "12,66,44"},
+    "Pink":   {"accent": "#ff5fc8", "bright": "#ff9cde", "glow": "255,95,200", "deep": "#55103f", "bubble": "83,16,63"},
+    "Purple": {"accent": "#a879ff", "bright": "#c5a6ff", "glow": "168,121,255", "deep": "#30154f", "bubble": "48,21,79"},
+    "White":  {"accent": "#f4f4f7", "bright": "#ffffff", "glow": "220,220,235", "deep": "#3a3a46", "bubble": "55,55,68"},
+}
+theme = THEMES.get(st.session_state.get("ui_theme", "Red"), THEMES["Red"])
+st.markdown(f'''<style>
+:root{{--jane-red:{theme["accent"]};--jane-border:rgba({theme["glow"]},.42);--jane-accent:{theme["accent"]};}}
+.jane-title{{-webkit-text-stroke-color:{theme["accent"]}!important;text-shadow:0 0 5px {theme["accent"]},0 0 16px rgba({theme["glow"]},.8)!important;}}
+.jane-logo{{filter:drop-shadow(0 0 7px rgba({theme["glow"]},.75))!important;}}
+.energy-core{{border-color:rgba({theme["glow"]},.85)!important;box-shadow:0 0 12px {theme["accent"]},inset 0 0 15px rgba({theme["glow"]},.4)!important;}}
+.energy-core:before{{border-color:rgba({theme["glow"]},.85)!important;}}
+.energy-core:after{{border-color:rgba({theme["glow"]},.65)!important;}}
+.core-dot{{background:{theme["accent"]}!important;box-shadow:0 0 9px {theme["accent"]},0 0 22px {theme["accent"]}!important;}}
+[data-testid="stChatMessage"]:has(.jane-user-marker) [data-testid="stChatMessageContent"],
+[data-testid="stChatMessage"]:has(.jane-user-marker) .stChatMessageContent{{
+ background:linear-gradient(115deg,rgba({theme["bubble"]},.9),rgba({theme["glow"]},.10),rgba({theme["bubble"]},.94))!important;
+ border-color:rgba({theme["glow"]},.55)!important;
+ box-shadow:0 5px 24px rgba({theme["glow"]},.12),inset 0 1px rgba(255,255,255,.055)!important;
+}}
+[data-testid="stChatInput"]{{border-color:{theme["accent"]}!important;background:linear-gradient(125deg,{theme["accent"]} 0%,{theme["deep"]} 32%,#1b0e16 67%,#08080b 100%)!important;}}
+[data-testid="stChatInput"]:focus-within{{border-color:{theme["bright"]}!important;box-shadow:0 0 0 1px {theme["accent"]},0 5px 24px rgba(0,0,0,.38)!important;}}
+[data-testid="stChatInput"] button{{background:{theme["accent"]}!important;color:{"#17121a" if st.session_state.get("ui_theme")=="White" else "#fff"}!important;}}
+.stButton>button:hover{{border-color:{theme["accent"]}!important;}}
+h1,h2,h3{{color:{theme["accent"]}!important;}}
+.jane-login-title,.jane-card-icon{{color:{theme["accent"]}!important;text-shadow:0 0 8px {theme["accent"]},0 0 24px rgba({theme["glow"]},.65)!important;}}
+.jane-login-kicker,.jane-feature-rail span{{color:{theme["accent"]}!important;}}
+.jane-login-card{{border-color:rgba({theme["glow"]},.7)!important;}}
+.jane-login-foot:before,.jane-login-foot:after{{background:linear-gradient(90deg,transparent,{theme["accent"]})!important;}}
 </style>''', unsafe_allow_html=True)
 
 
@@ -632,6 +669,8 @@ with st.sidebar:
     st.markdown("## 🔴 J.A.N.E.")
     st.caption("Your personal intelligence workspace")
     with st.expander("⚙️ Settings", expanded=False):
+        st.selectbox("UI accent color", ["Red", "Blue", "Green", "Pink", "Purple", "White"], key="ui_theme",
+                     help="Change J.A.N.E.'s accent colors without changing its features.")
         st.slider(
             "System voice speed", min_value=0.5, max_value=3.0,
             value=float(st.session_state.get("voice_speed", 1.0)), step=0.1,
