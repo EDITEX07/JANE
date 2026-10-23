@@ -4,7 +4,6 @@ import json
 import uuid
 import urllib.request
 import urllib.error
-import urllib.parse
 from pathlib import Path
 from datetime import datetime
 
@@ -23,9 +22,9 @@ if "chats" not in st.session_state:
     st.session_state.chats = {first_id: {"title": "New conversation", "messages": [], "created": datetime.now().strftime("%d %b %Y, %H:%M")}}
     st.session_state.current_chat = first_id
 for key, default in {
-    "profile_name": "Explorer", "api_enabled": True, "uploaded_files": {}, "ui_theme": "Red",
-    "pending_prompt": None, "intelligence_mode": "Adaptive", "assistant_style": "Classic",
-    "auth_user": None, "auth_token": None, "auth_refresh_token": None, "auth_mode": "signin", "voice_speed": 1.0,
+    "profile_name": "Explorer", "api_enabled": True, "uploaded_files": {},
+    "pending_prompt": None, "intelligence_mode": "Adaptive",
+    "auth_user": None, "auth_token": None, "auth_mode": "signin", "voice_speed": 1.0,
 }.items():
     if key not in st.session_state:
         st.session_state[key] = default
@@ -44,57 +43,6 @@ def active_chat():
     if st.session_state.current_chat not in st.session_state.chats:
         st.session_state.current_chat = next(iter(st.session_state.chats))
     return st.session_state.chats[st.session_state.current_chat]
-
-
-def suggest_chat_title(prompt):
-    """Create a useful, human-readable title from the first substantive message."""
-    import re
-
-    text = re.sub(r"\s+", " ", str(prompt or "")).strip(" \t\r\n.,!?;:")
-    if not text:
-        return None
-
-    # Greetings and conversational openers should never become chat titles.
-    normalized = text.lower()
-    greeting = re.match(
-        r"^(hi|hello|hey|heya|yo|sup|good morning|good afternoon|good evening|how are you|what's up|whats up|thank you|thanks)(\b|[!.?, ]|$)",
-        normalized,
-    )
-    if greeting:
-        return None
-
-    # Make common study/learning conversations feel like purposeful sessions.
-    study_patterns = [
-        (r"^(?:i am |i'm |im )?(?:studying|study|learning|learn|revising|revision of|revise)\s+(?:about\s+|for\s+)?(.+)$", "Studying"),
-        (r"^(?:explain|teach me|help me understand)\s+(.+)$", "Understanding"),
-        (r"^(?:solve|help me solve)\s+(.+)$", "Solving"),
-        (r"^(?:research|researching)\s+(.+)$", "Researching"),
-        (r"^(?:plan|planning)\s+(.+)$", "Planning"),
-        (r"^(?:build|building|create|creating|develop|developing)\s+(.+)$", "Building"),
-    ]
-    for pattern, prefix in study_patterns:
-        match = re.match(pattern, text, flags=re.IGNORECASE)
-        if match:
-            topic = match.group(1).strip(" .!?;:")
-            if topic:
-                title = f"{prefix} {topic}"
-                return title[:56].rstrip(" ,.-")
-
-    # Use the meaningful prompt itself, with enough room to identify its topic.
-    text = re.sub(r"^(please\s+)?(can you|could you|would you|i want you to)\s+", "", text, flags=re.IGNORECASE)
-    return text[:56].rstrip(" ,.-") or None
-
-
-def update_chat_title(chat, prompt):
-    """Ignore greetings; allow the first meaningful message to name the chat."""
-    title = str(chat.get("title", "New conversation")).strip()
-    generic_titles = {"", "new conversation", "hi", "hello", "hey", "yo", "sup", "good morning", "good afternoon", "good evening"}
-    # Also repair older sessions that were titled from a greeting.
-    candidate = suggest_chat_title(prompt)
-    if not candidate:
-        return
-    if title.lower() in generic_titles:
-        chat["title"] = candidate
 
 
 @st.dialog("Choose intelligence")
@@ -121,29 +69,6 @@ def intelligence_dialog():
     st.caption("Your choice stays active until you change it.")
 
 
-
-@st.dialog("Choose assistant style")
-def assistant_style_dialog():
-    st.caption("Choose how J.A.N.E. speaks to you.")
-    options = {
-        "Classic": ("💬", "Natural, friendly, everyday J.A.N.E."),
-        "JARVIS": ("🛡️", "Formal, disciplined, mission-focused personal assistant."),
-    }
-    for name in ("Classic", "JARVIS"):
-        icon, description = options[name]
-        with st.container(border=True):
-            left, right = st.columns([5, 1])
-            with left:
-                st.markdown(f"**{icon} {name}**")
-                st.caption(description)
-            with right:
-                if st.session_state.assistant_style == name:
-                    st.markdown("**✓ Active**")
-                elif st.button("Select", key=f"style_select_{name}", use_container_width=True):
-                    st.session_state.assistant_style = name
-                    st.rerun()
-    st.caption("This changes J.A.N.E.'s response style, not its intelligence mode.")
-
 def render_message_content(message):
     content = message.get("content", "")
     if message.get("role") == "user":
@@ -168,82 +93,31 @@ button.addEventListener("click",async()=>{{try{{await navigator.clipboard.writeT
 
 
 def render_speak_controls(content, key):
-    """Generate reply audio through ElevenLabs when configured."""
+    """Read replies with browser/device speech synthesis, without a TTS API call."""
     safe_key = "voice_" + "".join(ch if ch.isalnum() else "_" for ch in str(key))
-    audio_state_key = f"generated_audio_{safe_key}"
-    text_state_key = f"generated_audio_text_{safe_key}"
-
-    if st.button("🔊 Speak with J.A.N.E. voice", key=f"speak_button_{safe_key}"):
-        try:
-            api_key = str(st.secrets.get("ELEVENLABS_API_KEY", "")).strip()
-            voice_id = str(st.secrets.get("ELEVENLABS_VOICE_ID", "")).strip()
-        except Exception:
-            api_key = ""
-            voice_id = ""
-
-        if not api_key:
-            st.error("Add ELEVENLABS_API_KEY in Streamlit app settings → Secrets.")
-        elif not voice_id:
-            st.error(
-                "Add ELEVENLABS_VOICE_ID in Streamlit Secrets too. "
-                "In ElevenLabs, open the selected Patrick voice's menu and choose Copy voice ID."
-            )
-        else:
-            speech_text = str(content or "").strip()
-            if not speech_text:
-                st.info("There is no text to speak.")
-            else:
-                # Keep individual requests within a practical length for the free tier.
-                if len(speech_text) > 4500:
-                    speech_text = speech_text[:4490].rsplit(" ", 1)[0] + "…"
-                    st.caption("This reply is long, so only its first part will be spoken.")
-                try:
-                    with st.spinner("J.A.N.E. is preparing your voice…"):
-                        payload = json.dumps({
-                            "text": speech_text,
-                            "model_id": "eleven_multilingual_v2",
-                            "voice_settings": {
-                                "stability": 0.55,
-                                "similarity_boost": 0.75,
-                                "style": 0.15,
-                                "use_speaker_boost": True,
-                            },
-                        }).encode("utf-8")
-                        request = urllib.request.Request(
-                            f"https://api.elevenlabs.io/v1/text-to-speech/{urllib.parse.quote(voice_id, safe='')}",
-                            data=payload,
-                            headers={
-                                "xi-api-key": api_key,
-                                "Content-Type": "application/json",
-                                "Accept": "audio/mpeg",
-                            },
-                            method="POST",
-                        )
-                        with urllib.request.urlopen(request, timeout=60) as response:
-                            audio_bytes = response.read()
-                    st.session_state[audio_state_key] = audio_bytes
-                    st.session_state[text_state_key] = speech_text
-                except urllib.error.HTTPError as error:
-                    try:
-                        detail = error.read().decode("utf-8", errors="replace")[:350]
-                    except Exception:
-                        detail = "No additional details returned."
-                    st.error(
-                        f"ElevenLabs voice request failed (HTTP {error.code}). "
-                        f"Check the API key, voice ID, and Text to Speech permission. Details: {detail}"
-                    )
-                except Exception as error:
-                    st.error(f"ElevenLabs voice generation failed ({type(error).__name__}). Check your connection and try again.")
-
-    if st.session_state.get(audio_state_key):
-        st.audio(st.session_state[audio_state_key], format="audio/mpeg")
-        st.download_button(
-            "⬇ Download speech",
-            data=st.session_state[audio_state_key],
-            file_name="jane_reply.mp3",
-            mime="audio/mpeg",
-            key=f"download_{safe_key}",
-        )
+    text_payload = json.dumps(str(content or "").strip()[:12000], ensure_ascii=False).replace("</", "<\\/")
+    speed = float(st.session_state.get("voice_speed", 1.0))
+    components.html(f'''<div style="font-family:Arial,sans-serif;display:flex;gap:8px;align-items:center;background:transparent">
+<button id="speak-{safe_key}" style="background:#a10f2b;color:white;border:0;border-radius:18px;padding:8px 13px;cursor:pointer">🔊 Read aloud</button>
+<button id="stop-{safe_key}" style="background:#171217;color:#eee;border:1px solid #49303b;border-radius:18px;padding:8px 13px;cursor:pointer">■ Stop</button>
+</div>
+<script>
+(()=>{{
+ const text={text_payload};
+ const rate={speed};
+ const speak=document.getElementById("speak-{safe_key}");
+ const stop=document.getElementById("stop-{safe_key}");
+ speak.addEventListener("click",()=>{{
+   if(!text)return;
+   if(!("speechSynthesis" in window)||!("SpeechSynthesisUtterance" in window))return;
+   window.speechSynthesis.cancel();
+   const utterance=new SpeechSynthesisUtterance(text);
+   utterance.rate=Math.max(0.5,Math.min(3,rate));
+   window.speechSynthesis.speak(utterance);
+ }});
+ stop.addEventListener("click",()=>{{if("speechSynthesis" in window)window.speechSynthesis.cancel();}});
+}})();
+</script>''', height=52, scrolling=False)
 
 # -------------------- STYLING --------------------
 st.markdown(r'''<style>
@@ -280,12 +154,7 @@ html,body,[class*="css"]{font-family:Inter,system-ui,sans-serif}
 /* Assistant replies stay unboxed. */
 [data-testid="stChatMessage"]:has(.jane-assistant-marker){justify-content:flex-start!important}
 [data-testid="stChatMessage"]:has(.jane-assistant-marker) [data-testid="stChatMessageContent"],
-[data-testid="stChatMessage"]:has(.jane-assistant-marker) .stChatMessageContent{display:block!important;flex:1 1 auto!important;width:100%!important;max-width:100%!important;margin:0 auto 0 0!important;padding:4px 0 8px!important;color:#f5f2f6!important;background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;overflow-wrap:anywhere!important;text-align:left!important}
-[data-testid="stChatMessage"]:has(.jane-assistant-marker) [data-testid="stMarkdownContainer"],
-[data-testid="stChatMessage"]:has(.jane-assistant-marker) [data-testid="stMarkdownContainer"] *{text-align:left!important}
-[data-testid="stChatMessage"]:has(.jane-assistant-marker) [data-testid="stMarkdownContainer"] ul,
-[data-testid="stChatMessage"]:has(.jane-assistant-marker) [data-testid="stMarkdownContainer"] ol{padding-left:1.5rem!important;margin-left:0!important}
-[data-testid="stChatMessage"]:has(.jane-assistant-marker) [data-testid="stMarkdownContainer"] table{margin-left:0!important;margin-right:auto!important}
+[data-testid="stChatMessage"]:has(.jane-assistant-marker) .stChatMessageContent{display:block!important;flex:1 1 auto!important;width:100%!important;max-width:100%!important;margin:0 auto 0 0!important;padding:4px 0 8px!important;color:#f5f2f6!important;background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;overflow-wrap:anywhere!important}
 [data-testid="stChatMessage"]:has(.jane-user-marker) [data-testid="stMarkdownContainer"]{transform:none!important;margin:0!important;padding:0!important}
 [data-testid="stChatMessage"]:has(.jane-user-marker) [data-testid="stChatMessageContent"]>div{min-width:0!important;max-width:100%!important}
 [data-testid="stChatMessage"]:has(.jane-user-marker) [data-testid="stMarkdownContainer"] p{margin-top:0!important;margin-bottom:0!important;line-height:1.5!important}
@@ -294,51 +163,12 @@ html,body,[class*="css"]{font-family:Inter,system-ui,sans-serif}
 [data-testid="stChatInput"]{position:relative!important;background:linear-gradient(125deg,#a10f2b 0%,#5a1023 32%,#1b0e16 67%,#08080b 100%)!important;border:1px solid #ff465c!important;border-radius:22px!important;padding:38px 13px 8px!important;min-height:112px!important;max-height:156px!important;overflow:visible!important;box-shadow:0 5px 24px rgba(0,0,0,.45)!important}
 div[class*="st-key-open_intelligence_dialog"]{position:fixed!important;z-index:10002!important;left:max(18px,calc((100vw - 900px)/2 + 16px))!important;bottom:169px!important;width:auto!important;max-width:190px!important;margin:0!important}
 div[class*="st-key-open_intelligence_dialog"] button{min-height:28px!important;height:28px!important;width:auto!important;padding:2px 10px!important;border-radius:999px!important;background:rgba(12,8,13,.92)!important;border:1px solid rgba(255,150,165,.55)!important;color:#fff!important;font-size:12px!important;white-space:nowrap!important}
-div[class*="st-key-open_assistant_style_dialog"]{position:fixed!important;z-index:10002!important;left:max(205px,calc((100vw - 900px)/2 + 205px))!important;bottom:169px!important;width:auto!important;max-width:160px!important;margin:0!important}
-div[class*="st-key-open_assistant_style_dialog"] button{min-height:28px!important;height:28px!important;width:auto!important;padding:2px 10px!important;border-radius:999px!important;background:rgba(12,8,13,.92)!important;border:1px solid rgba(255,150,165,.55)!important;color:#fff!important;font-size:12px!important;white-space:nowrap!important}
 [data-testid="stChatInput"]:focus-within{border-color:#ff7182!important;box-shadow:0 0 0 1px #ff465c,0 5px 24px rgba(0,0,0,.38)!important}[data-testid="stChatInput"] textarea{box-sizing:border-box!important;width:100%!important;color:#fff!important;background:transparent!important;font-size:16px!important;line-height:1.5!important;min-height:42px!important;max-height:7.2em!important;overflow-y:auto!important;resize:none!important;padding-right:3.2rem!important}
 [data-testid="stChatInput"] button{position:absolute!important;right:10px!important;bottom:10px!important;z-index:5!important;flex:0 0 auto!important;min-width:38px!important;width:38px!important;height:38px!important;display:flex!important;align-items:center!important;justify-content:center!important}
 [data-testid="stChatInput"] form,[data-testid="stChatInput"]>div{position:relative!important;min-width:0!important;box-sizing:border-box!important}[data-testid="stChatInput"] textarea::placeholder{color:#d0c5cc!important;opacity:1!important}[data-testid="stChatInput"] button{background:#ff465c!important;color:#fff!important;border:0!important;border-radius:50%!important}
 .stButton>button{min-height:42px;border-radius:12px;border:1px solid var(--jane-border);background:#211923;color:#f4f4f5;transition:border-color .2s ease}.stButton>button:hover{border-color:var(--jane-red);color:#fff}[data-testid="stFileUploader"]{background:rgba(21,19,26,.85);border-radius:14px}h1,h2,h3{color:#ff5267}p,label,li{overflow-wrap:anywhere}.jane-footer{color:#898491;font-size:11px;text-align:center;padding:12px 4px 5px}
-@media(max-width:768px){.block-container{padding:.7rem .65rem 130px!important;max-width:100%}.jane-logo{width:130px}.jane-subtitle{font-size:9px;letter-spacing:2px}.core-wrap{height:75px;margin:8px auto 15px}.energy-core{width:58px;height:58px}[data-testid="stChatInput"]{border-radius:20px!important;padding:38px 12px 8px!important;min-height:112px!important;max-height:156px!important}div[class*="st-key-open_intelligence_dialog"]{left:24px!important;bottom:169px!important;max-width:180px!important}div[class*="st-key-open_assistant_style_dialog"]{left:190px!important;bottom:169px!important;max-width:145px!important}.stButton>button{min-height:44px;font-size:14px}}
+@media(max-width:768px){.block-container{padding:.7rem .65rem 130px!important;max-width:100%}.jane-logo{width:130px}.jane-subtitle{font-size:9px;letter-spacing:2px}.core-wrap{height:75px;margin:8px auto 15px}.energy-core{width:58px;height:58px}[data-testid="stChatInput"]{border-radius:20px!important;padding:38px 12px 8px!important;min-height:112px!important;max-height:156px!important}div[class*="st-key-open_intelligence_dialog"]{left:24px!important;bottom:169px!important;max-width:180px!important}.stButton>button{min-height:44px;font-size:14px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
-</style>''', unsafe_allow_html=True)
-
-
-
-# -------------------- UI COLOR THEMES --------------------
-THEMES = {
-    "Red":    {"accent": "#ff465c", "bright": "#ff7182", "glow": "255,70,92", "deep": "#5a1023", "bubble": "103,15,37"},
-    "Blue":   {"accent": "#4da3ff", "bright": "#83c0ff", "glow": "77,163,255", "deep": "#102b52", "bubble": "15,43,83"},
-    "Green":  {"accent": "#35d07f", "bright": "#7af0ae", "glow": "53,208,127", "deep": "#0e422d", "bubble": "12,66,44"},
-    "Pink":   {"accent": "#ff5fc8", "bright": "#ff9cde", "glow": "255,95,200", "deep": "#55103f", "bubble": "83,16,63"},
-    "Purple": {"accent": "#a879ff", "bright": "#c5a6ff", "glow": "168,121,255", "deep": "#30154f", "bubble": "48,21,79"},
-    "White":  {"accent": "#f4f4f7", "bright": "#ffffff", "glow": "220,220,235", "deep": "#3a3a46", "bubble": "55,55,68"},
-}
-theme = THEMES.get(st.session_state.get("ui_theme", "Red"), THEMES["Red"])
-st.markdown(f'''<style>
-:root{{--jane-red:{theme["accent"]};--jane-border:rgba({theme["glow"]},.42);--jane-accent:{theme["accent"]};}}
-.jane-title{{-webkit-text-stroke-color:{theme["accent"]}!important;text-shadow:0 0 5px {theme["accent"]},0 0 16px rgba({theme["glow"]},.8)!important;}}
-.jane-logo{{filter:drop-shadow(0 0 7px rgba({theme["glow"]},.75))!important;}}
-.energy-core{{border-color:rgba({theme["glow"]},.85)!important;box-shadow:0 0 12px {theme["accent"]},inset 0 0 15px rgba({theme["glow"]},.4)!important;}}
-.energy-core:before{{border-color:rgba({theme["glow"]},.85)!important;}}
-.energy-core:after{{border-color:rgba({theme["glow"]},.65)!important;}}
-.core-dot{{background:{theme["accent"]}!important;box-shadow:0 0 9px {theme["accent"]},0 0 22px {theme["accent"]}!important;}}
-[data-testid="stChatMessage"]:has(.jane-user-marker) [data-testid="stChatMessageContent"],
-[data-testid="stChatMessage"]:has(.jane-user-marker) .stChatMessageContent{{
- background:linear-gradient(115deg,rgba({theme["bubble"]},.9),rgba({theme["glow"]},.10),rgba({theme["bubble"]},.94))!important;
- border-color:rgba({theme["glow"]},.55)!important;
- box-shadow:0 5px 24px rgba({theme["glow"]},.12),inset 0 1px rgba(255,255,255,.055)!important;
-}}
-[data-testid="stChatInput"]{{border-color:{theme["accent"]}!important;background:linear-gradient(125deg,{theme["accent"]} 0%,{theme["deep"]} 32%,#1b0e16 67%,#08080b 100%)!important;}}
-[data-testid="stChatInput"]:focus-within{{border-color:{theme["bright"]}!important;box-shadow:0 0 0 1px {theme["accent"]},0 5px 24px rgba(0,0,0,.38)!important;}}
-[data-testid="stChatInput"] button{{background:{theme["accent"]}!important;color:{"#17121a" if st.session_state.get("ui_theme")=="White" else "#fff"}!important;}}
-.stButton>button:hover{{border-color:{theme["accent"]}!important;}}
-h1,h2,h3{{color:{theme["accent"]}!important;}}
-.jane-login-title,.jane-card-icon{{color:{theme["accent"]}!important;text-shadow:0 0 8px {theme["accent"]},0 0 24px rgba({theme["glow"]},.65)!important;}}
-.jane-login-kicker,.jane-feature-rail span{{color:{theme["accent"]}!important;}}
-.jane-login-card{{border-color:rgba({theme["glow"]},.7)!important;}}
-.jane-login-foot:before,.jane-login-foot:after{{background:linear-gradient(90deg,transparent,{theme["accent"]})!important;}}
 </style>''', unsafe_allow_html=True)
 
 
@@ -378,247 +208,6 @@ def firebase_auth_request(endpoint, email, password):
         raise ValueError(friendly.get(code, f"Firebase authentication failed: {code}")) from None
 
 
-# -------------------- FIRESTORE MEMORY 2.0 --------------------
-def _firebase_project_id():
-    try:
-        return str(st.secrets.get("FIREBASE_PROJECT_ID", "")).strip()
-    except Exception:
-        return ""
-
-
-def _refresh_firebase_id_token():
-    """Refresh the short-lived Firebase ID token using the sign-in refresh token."""
-    refresh_token = st.session_state.get("auth_refresh_token")
-    if not refresh_token:
-        raise RuntimeError("Your sign-in session has expired. Sign out and sign in again, then retry chat history.")
-    try:
-        api_key = str(st.secrets.get("FIREBASE_API_KEY", "")).strip()
-    except Exception:
-        api_key = ""
-    if not api_key:
-        raise RuntimeError("Add FIREBASE_API_KEY to Streamlit Secrets.")
-    url = f"https://securetoken.googleapis.com/v1/token?key={api_key}"
-    body = urllib.parse.urlencode({"grant_type": "refresh_token", "refresh_token": refresh_token}).encode("utf-8")
-    request = urllib.request.Request(url, data=body, headers={"Content-Type": "application/x-www-form-urlencoded"}, method="POST")
-    try:
-        with urllib.request.urlopen(request, timeout=15) as response:
-            result = json.loads(response.read().decode("utf-8"))
-    except Exception:
-        raise RuntimeError("Your Firebase session could not be refreshed. Sign out and sign in again.") from None
-    st.session_state.auth_token = result.get("id_token")
-    if result.get("refresh_token"):
-        st.session_state.auth_refresh_token = result["refresh_token"]
-    if not st.session_state.auth_token:
-        raise RuntimeError("Firebase did not return a refreshed sign-in token. Sign in again.")
-    return st.session_state.auth_token
-
-
-def _firestore_request(method, path, payload=None):
-    """Call Firestore REST using the user's Firebase ID token, refreshing once if expired."""
-    user = st.session_state.get("auth_user") or {}
-    token = st.session_state.get("auth_token")
-    project_id = _firebase_project_id()
-    if not user.get("uid") or not token:
-        raise RuntimeError("Sign in to use personal memory and saved chat history.")
-    if not project_id:
-        raise RuntimeError("Add FIREBASE_PROJECT_ID to Streamlit Secrets to enable memory and chat history.")
-    url = "https://firestore.googleapis.com/v1/" + path.lstrip("/")
-    data = None if payload is None else json.dumps(payload, ensure_ascii=False).encode("utf-8")
-
-    def send(current_token):
-        request = urllib.request.Request(url, data=data, headers={
-            "Authorization": "Bearer " + current_token,
-            "Content-Type": "application/json; charset=utf-8",
-        }, method=method)
-        return urllib.request.urlopen(request, timeout=12)
-
-    try:
-        try:
-            response = send(token)
-        except urllib.error.HTTPError as exc:
-            if exc.code == 401:
-                token = _refresh_firebase_id_token()
-                response = send(token)
-            else:
-                raise
-        with response:
-            raw = response.read().decode("utf-8")
-            return json.loads(raw) if raw else {}
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace")[:350]
-        if exc.code == 401:
-            raise RuntimeError("Firebase rejected the sign-in token. Sign out and sign in again.") from None
-        if exc.code == 403:
-            raise RuntimeError("Firestore returned PERMISSION_DENIED. Check that FIREBASE_PROJECT_ID is the correct project and publish rules allowing /users/{userId}/chats/{chatId} and /users/{userId}/memories/{memoryId} only when request.auth.uid == userId. Firebase detail: " + detail) from None
-        raise RuntimeError(f"Firestore request failed ({exc.code}). {detail}") from None
-
-
-def _memory_collection_path():
-    uid = (st.session_state.get("auth_user") or {}).get("uid", "")
-    if not uid or "/" in uid:
-        raise RuntimeError("A valid signed-in user is required.")
-    return f"projects/{_firebase_project_id()}/databases/(default)/documents/users/{uid}/memories"
-
-
-def _chat_collection_path():
-    uid = (st.session_state.get("auth_user") or {}).get("uid", "")
-    if not uid or "/" in uid:
-        raise RuntimeError("A valid signed-in user is required.")
-    return f"projects/{_firebase_project_id()}/databases/(default)/documents/users/{uid}/chats"
-
-
-def _firestore_string(value):
-    return {"stringValue": str(value)}
-
-
-def _decode_firestore_value(value):
-    if "stringValue" in value: return value["stringValue"]
-    if "booleanValue" in value: return value["booleanValue"]
-    if "integerValue" in value:
-        try: return int(value["integerValue"])
-        except Exception: return value["integerValue"]
-    if "timestampValue" in value: return value["timestampValue"]
-    return None
-
-
-def save_chat_history(chat_id, chat_data):
-    """Persist a user's conversation as a JSON string in their own Firestore chat document."""
-    if not st.session_state.get("auth_user"):
-        return False
-    if not chat_id or "/" in str(chat_id) or ".." in str(chat_id):
-        raise RuntimeError("Invalid chat ID.")
-    # Binary image data and uploaded file bytes are deliberately not stored in chat history.
-    safe_messages = []
-    for message in chat_data.get("messages", []):
-        safe = {k: v for k, v in message.items() if k not in ("image_bytes",)}
-        if isinstance(safe.get("attachments"), list):
-            safe["attachments"] = [str(name) for name in safe["attachments"]]
-        safe_messages.append(safe)
-    now = datetime.utcnow().isoformat(timespec="seconds") + "Z"
-    payload = {
-        "id": str(chat_id),
-        "title": str(chat_data.get("title", "New conversation"))[:160],
-        "created": str(chat_data.get("created", now)),
-        "updatedAt": now,
-        "messages": safe_messages,
-    }
-    document = {"fields": {
-        "payload": {"stringValue": json.dumps(payload, ensure_ascii=False)},
-        "title": {"stringValue": payload["title"]},
-        "created": {"stringValue": payload["created"]},
-        "updatedAt": {"timestampValue": now},
-    }}
-    path = _chat_collection_path() + "/" + str(chat_id)
-    try:
-        _firestore_request("PATCH", path + "?updateMask.fieldPaths=payload&updateMask.fieldPaths=title&updateMask.fieldPaths=created&updateMask.fieldPaths=updatedAt", document)
-    except RuntimeError as exc:
-        if "(404)" not in str(exc):
-            raise
-        _firestore_request("POST", _chat_collection_path() + "?documentId=" + str(chat_id), document)
-    return True
-
-
-def load_chat_history():
-    """Load persisted conversations for the currently authenticated account."""
-    if not st.session_state.get("auth_user"):
-        return {}
-    result = _firestore_request("GET", _chat_collection_path())
-    chats = {}
-    for document in result.get("documents", []):
-        fields = {k: _decode_firestore_value(v) for k, v in document.get("fields", {}).items()}
-        try:
-            payload = json.loads(fields.get("payload", "{}"))
-            chat_id = str(payload.get("id") or document.get("name", "").rsplit("/", 1)[-1])
-            messages = payload.get("messages", [])
-            if not isinstance(messages, list):
-                messages = []
-            chats[chat_id] = {
-                "title": str(payload.get("title", "New conversation")),
-                "created": str(payload.get("created", "")),
-                "messages": messages,
-            }
-        except (TypeError, ValueError):
-            continue
-    return chats
-
-
-def delete_chat_history(chat_id):
-    if not chat_id or "/" in str(chat_id) or ".." in str(chat_id):
-        raise RuntimeError("Invalid chat ID.")
-    _firestore_request("DELETE", _chat_collection_path() + "/" + str(chat_id))
-
-
-def load_memories():
-    if not st.session_state.get("auth_user"):
-        return []
-    result = _firestore_request("GET", _memory_collection_path())
-    memories = []
-    for doc in result.get("documents", []):
-        fields = {k: _decode_firestore_value(v) for k, v in doc.get("fields", {}).items()}
-        memories.append({"id": doc.get("name", "").rsplit("/", 1)[-1], **fields})
-    memories.sort(key=lambda item: str(item.get("updatedAt", "")), reverse=True)
-    return memories
-
-
-def save_memory(text, source="automatic"):
-    text = " ".join(str(text or "").split()).strip()
-    if not text or len(text) > 600:
-        return False
-    # Do not save duplicates; compare normalized memory text.
-    memories = load_memories()
-    normalized = text.casefold().rstrip(".! ")
-    for item in memories:
-        if str(item.get("text", "")).casefold().rstrip(".! ") == normalized:
-            return False
-    now = datetime.utcnow().isoformat(timespec="seconds") + "Z"
-    fields = {
-        "text": {"stringValue": text},
-        "source": {"stringValue": source},
-        "createdAt": {"timestampValue": now},
-        "updatedAt": {"timestampValue": now},
-    }
-    doc_id = "m_" + uuid.uuid4().hex
-    _firestore_request("POST", _memory_collection_path() + "?documentId=" + doc_id, {"fields": fields})
-    return True
-
-
-def delete_memory(memory_id):
-    if not memory_id or "/" in memory_id or ".." in memory_id:
-        raise RuntimeError("Invalid memory ID.")
-    _firestore_request("DELETE", _memory_collection_path() + "/" + memory_id)
-
-
-def extract_memories(user_text, assistant_text):
-    """Use Gemini to extract a few durable, non-sensitive facts; never for Guest sessions."""
-    if not st.session_state.get("auth_user"):
-        return []
-    # Explicit remember commands are handled locally without an extraction call.
-    try:
-        client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
-        instruction = (
-            "Extract up to 3 durable, useful user memories from the exchange. Return ONLY a JSON array of short strings. "
-            "Save preferences, long-running projects, goals, and stable workflow choices. Do not save one-off questions, "
-            "temporary details, passwords, API keys, precise location, financial account details, health data, or other sensitive personal data. "
-            "Do not infer facts not explicitly supported by the exchange. Return [] if nothing merits memory. Each string max 240 characters.\n"
-            + "USER: " + str(user_text)[:2500] + "\nASSISTANT: " + str(assistant_text)[:1200]
-        )
-        result = client.models.generate_content(model="gemini-3.5-flash-lite", contents=instruction)
-        raw = (result.text or "[]").strip()
-        if raw.startswith("```"):
-            raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
-        parsed = json.loads(raw)
-        return [" ".join(str(x).split())[:240] for x in parsed if isinstance(x, str) and x.strip()][:3] if isinstance(parsed, list) else []
-    except Exception:
-        return []
-
-
-def handle_explicit_memory_command(prompt):
-    """Return a memory payload for explicit remember requests, otherwise None."""
-    import re
-    match = re.match(r"^\s*(?:j\.a\.n\.e\.\s*)?(?:remember(?:\s+that)?|save\s+to\s+memory)\s*[:,-]?\s*(.+?)\s*$", prompt, re.I | re.S)
-    return match.group(1).strip() if match else None
-
-
 # -------------------- FIRST-RUN WELCOME / SIGN-IN GATE --------------------
 if "jane_entry_screen" not in st.session_state:
     st.session_state.jane_entry_screen = "welcome"
@@ -633,19 +222,6 @@ if "auth_token" not in st.session_state:
 
 if st.session_state.get("auth_user"):
     st.session_state.jane_entry_screen = "workspace"
-    active_uid = st.session_state.auth_user.get("uid", "")
-    if active_uid and st.session_state.get("chat_history_loaded_uid") != active_uid:
-        try:
-            saved_chats = load_chat_history()
-            if saved_chats:
-                # Keep current in-session chats while merging the account's saved history.
-                saved_chats.update(st.session_state.chats)
-                st.session_state.chats = saved_chats
-                st.session_state.current_chat = next(reversed(saved_chats))
-            st.session_state.chat_history_loaded_uid = active_uid
-            st.session_state.chat_history_error = ""
-        except Exception as exc:
-            st.session_state.chat_history_error = str(exc)
 
 if st.session_state.jane_entry_screen != "workspace":
     st.markdown(r'''<style>
@@ -700,7 +276,6 @@ if st.session_state.jane_entry_screen != "workspace":
                         result = firebase_auth_request("signUp" if is_signup else "signInWithPassword", email, password)
                     st.session_state.auth_user = {"email": result.get("email", email.strip()), "uid": result.get("localId", "")}
                     st.session_state.auth_token = result.get("idToken")
-                    st.session_state.auth_refresh_token = result.get("refreshToken")
                     st.session_state.profile_name = email.strip().split("@")[0][:40] or "User"
                     st.session_state.jane_entry_screen = "workspace"
                     st.rerun()
@@ -720,8 +295,6 @@ with st.sidebar:
     st.markdown("## 🔴 J.A.N.E.")
     st.caption("Your personal intelligence workspace")
     with st.expander("⚙️ Settings", expanded=False):
-        st.selectbox("UI accent color", ["Red", "Blue", "Green", "Pink", "Purple", "White"], key="ui_theme",
-                     help="Change J.A.N.E.'s accent colors without changing its features.")
         st.slider(
             "System voice speed", min_value=0.5, max_value=3.0,
             value=float(st.session_state.get("voice_speed", 1.0)), step=0.1,
@@ -730,66 +303,9 @@ with st.sidebar:
         st.caption("Uses your browser/device voice. Available voices depend on your system.")
     if st.session_state.get("auth_user"):
         st.caption("Signed in: " + st.session_state.auth_user.get("email", "Account"))
-        with st.expander("🧠 Memory center", expanded=False):
-            st.caption("Only your signed-in account can access these memories. Review or delete anything here.")
-            if st.button("↻ Refresh memories", key="refresh_memories", use_container_width=True):
-                st.session_state.pop("memory_cache", None)
-                st.rerun()
-            try:
-                memory_items = load_memories()
-                st.session_state.memory_cache = memory_items
-                if not memory_items:
-                    st.caption("No saved memories yet. Say ‘Remember that …’ or chat normally to build memory.")
-                for mem in memory_items:
-                    with st.container(border=True):
-                        st.write(mem.get("text", ""))
-                        st.caption("Saved: " + str(mem.get("updatedAt", ""))[:10] + " · " + str(mem.get("source", "automatic")))
-                        if st.button("Delete memory", key="delete_memory_" + mem["id"], use_container_width=True):
-                            try:
-                                delete_memory(mem["id"])
-                                st.success("Memory deleted.")
-                                st.rerun()
-                            except Exception as exc:
-                                st.error(str(exc))
-            except Exception as exc:
-                st.warning("Memory is not connected yet: " + str(exc))
-        with st.expander("💬 Saved chat history", expanded=False):
-            st.caption("Your signed-in conversations sync through Firestore. Guest chats remain temporary.")
-            if st.session_state.get("chat_history_error"):
-                st.warning("Chat history could not load: " + st.session_state.chat_history_error)
-            if st.button("↻ Refresh chat history", key="refresh_chat_history", use_container_width=True):
-                try:
-                    saved_chats = load_chat_history()
-                    st.session_state.chats.update(saved_chats)
-                    st.session_state.chat_history_error = ""
-                    st.rerun()
-                except Exception as exc:
-                    st.session_state.chat_history_error = str(exc)
-                    st.rerun()
-            for saved_id, saved_data in reversed(list(st.session_state.chats.items())):
-                if not saved_data.get("messages"):
-                    continue
-                with st.container(border=True):
-                    st.write(saved_data.get("title", "New conversation"))
-                    a, b = st.columns(2)
-                    with a:
-                        if st.button("Open", key="open_saved_chat_" + saved_id, use_container_width=True):
-                            st.session_state.current_chat = saved_id
-                            st.rerun()
-                    with b:
-                        if st.button("Delete", key="delete_saved_chat_" + saved_id, use_container_width=True):
-                            try:
-                                delete_chat_history(saved_id)
-                                st.session_state.chats.pop(saved_id, None)
-                                if st.session_state.current_chat == saved_id:
-                                    make_chat()
-                                st.rerun()
-                            except Exception as exc:
-                                st.error("Could not delete saved chat: " + str(exc))
         if st.button("Sign out", use_container_width=True, key="jane_sign_out"):
             st.session_state.auth_user = None
             st.session_state.auth_token = None
-            st.session_state.auth_refresh_token = None
             st.session_state.jane_entry_screen = "welcome"
             st.rerun()
     if st.button("＋  New chat", use_container_width=True):
@@ -873,19 +389,7 @@ meta_left, meta_right = st.columns([4, 1])
 with meta_left: st.caption(f"Workspace / {chat['title']}")
 with meta_right: st.caption(f"👤 {st.session_state.profile_name}")
 if not chat["messages"]:
-    signed_in_email = str((st.session_state.get("auth_user") or {}).get("email", "")).strip().casefold()
-    is_commander_account = signed_in_email == "editexaura07@gmail.com"
-    if is_commander_account:
-        st.markdown(
-            '<div class="welcome-wrap" style="border:1px solid #8f1934;border-radius:18px;padding:24px 20px;background:linear-gradient(135deg,rgba(120,12,36,.20),rgba(8,8,11,.96));">'
-            '<div class="welcome-title">HELLO, SIR.</div>'
-            '<div class="welcome-copy">Systems are online and ready. What should we accomplish today?</div>'
-            '<div style="margin-top:14px;color:#ff496c;font-size:.78rem;font-weight:700;letter-spacing:.16em;">AWAITING YOUR COMMAND</div>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-    else:
-        st.markdown('<div class="welcome-wrap"><div class="welcome-title">What can I help with?</div><div class="welcome-copy">Research, analyze, organize, and think deeper with J.A.N.E.</div></div>', unsafe_allow_html=True)
+    st.markdown('<div class="welcome-wrap"><div class="welcome-title">What can I help with?</div><div class="welcome-copy">Research, analyze, organize, and think deeper with J.A.N.E.</div></div>', unsafe_allow_html=True)
     suggestions = ["Help me plan an online business", "Analyze a business idea", "Explain a difficult topic"]
     cols = st.columns(3)
     for i, suggestion in enumerate(suggestions):
@@ -908,10 +412,8 @@ for message_index, message in enumerate(chat["messages"]):
 
 if st.session_state.uploaded_files:
     st.caption("📎 Attached in this session: " + ", ".join(st.session_state.uploaded_files.keys()))
-if st.button(f"◉ {st.session_state.intelligence_mode} ▾", key="open_intelligence_dialog", help="Choose how J.A.N.E. thinks"):
+if st.button(f"◉ {st.session_state.intelligence_mode} ▾", key="open_intelligence_dialog", help="Choose how J.A.N.E. responds"):
     intelligence_dialog()
-if st.button(f"✦ {st.session_state.assistant_style} ▾", key="open_assistant_style_dialog", help="Choose Classic or JARVIS style"):
-    assistant_style_dialog()
 image_mode = st.selectbox(
     "J.A.N.E. mode",
     ["Chat", "Generate image"],
@@ -919,45 +421,6 @@ image_mode = st.selectbox(
     help="Choose Generate image to create an actual image from your description.",
     label_visibility="collapsed",
 )
-
-# Voice input: record a message, transcribe it with Gemini, then send it through
-# the same prompt pipeline used by typed messages. This is push-to-talk, not
-# an always-listening live audio session.
-with st.expander("🎙️ Speak to J.A.N.E.", expanded=False):
-    voice_audio = st.audio_input(
-        "Record your message",
-        sample_rate=16000,
-        key="jane_voice_recording",
-        help="Tap the microphone, speak, stop recording, then press Transcribe & send.",
-    )
-    if st.button("🎙️ Transcribe & send", key="jane_transcribe_send", use_container_width=True):
-        if voice_audio is None:
-            st.warning("Record a voice message first.")
-        else:
-            try:
-                with st.spinner("J.A.N.E. is listening to your recording…"):
-                    voice_client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
-                    transcription = voice_client.models.generate_content(
-                        model="gemini-3.5-flash-lite",
-                        contents=[
-                            "Transcribe the speech in this audio exactly as spoken. "
-                            "Return only the transcribed words, with punctuation. "
-                            "Do not answer the speaker or add commentary.",
-                            types.Part.from_bytes(data=voice_audio.getvalue(), mime_type="audio/wav"),
-                        ],
-                    )
-                transcript_text = (transcription.text or "").strip()
-                if transcript_text:
-                    st.session_state.pending_prompt = transcript_text
-                    st.rerun()
-                else:
-                    st.warning("I couldn't detect speech in that recording. Please try again.")
-            except Exception as voice_error:
-                st.error(
-                    f"Voice transcription failed ({type(voice_error).__name__}). "
-                    "Check GEMINI_API_KEY in Streamlit Secrets and try again."
-                )
-
 submitted_prompt = st.chat_input("Describe an image…" if image_mode == "Generate image" else "Message J.A.N.E....", key="jane_chat_input")
 prompt = submitted_prompt.strip() if submitted_prompt else None
 if st.session_state.pending_prompt:
@@ -965,28 +428,10 @@ if st.session_state.pending_prompt:
 
 # -------------------- PROCESS PROMPT --------------------
 if prompt:
-    explicit_memory = handle_explicit_memory_command(prompt)
-    if explicit_memory:
-        if not st.session_state.get("auth_user"):
-            st.session_state.chats[st.session_state.current_chat]["messages"].append({"role": "user", "content": prompt})
-            st.session_state.chats[st.session_state.current_chat]["messages"].append({"role": "assistant", "content": "Memory is available only when you sign in. Guest sessions do not save memories."})
-            st.rerun()
-        try:
-            saved = save_memory(explicit_memory, source="explicit")
-            notice = "Saved to your J.A.N.E. memory." if saved else "That memory is already saved (or could not be added as a duplicate)."
-        except Exception as exc:
-            notice = "I couldn't save that memory: " + str(exc)
-        st.session_state.chats[st.session_state.current_chat]["messages"].append({"role": "user", "content": prompt})
-        st.session_state.chats[st.session_state.current_chat]["messages"].append({"role": "assistant", "content": notice})
-        try:
-            save_chat_history(st.session_state.current_chat, st.session_state.chats[st.session_state.current_chat])
-        except Exception as exc:
-            st.session_state.chat_history_error = str(exc)
-        st.rerun()
     attachment_names = list(st.session_state.uploaded_files.keys())
     mode = st.session_state.intelligence_mode
     chat["messages"].append({"role": "user", "content": prompt, "attachments": attachment_names, "intelligence_mode": mode})
-    update_chat_title(chat, prompt)
+    if chat["title"] == "New conversation": chat["title"] = prompt.strip().replace("\n", " ")[:30] or "New conversation"
     with st.chat_message("user", avatar="user"):
         st.markdown('<span class="jane-user-marker"></span>', unsafe_allow_html=True)
         render_message_content({"role": "user", "content": prompt})
@@ -1019,7 +464,7 @@ if prompt:
             else:
                 mode_instructions = {
                     "General": "Use natural, direct conversation. Keep simple answers short, avoid unnecessary headings and analysis, and expand only when asked or genuinely needed.",
-                    "Adaptive": "Silently infer what the user needs and respond in the most natural, useful way. Adapt detail and format to the situation without announcing or labeling the task type, response style, or your internal approach. Use conversational prose by default; use steps, lists, or structure only when they genuinely help. Ask a clarifying question only when essential.",
+                    "Adaptive": "First identify the task type, then choose the most useful response style: conversational for chat, step-by-step for learning or troubleshooting, actionable for coding, criteria-based for comparisons, structured for planning, and careful about evidence and uncertainty for research. Ask a clarifying question only when essential.",
                     "Thinker": "For complex questions, examine assumptions, alternatives, trade-offs, edge cases, likely failure points, and calculation consistency before answering. Separate established facts from inference, then give a clear conclusion and useful supporting rationale. Stay concise for simple questions and never reveal private chain-of-thought.",
                 }
                 creator_age = 13 + (datetime.now().year - 2026)
@@ -1030,35 +475,15 @@ if prompt:
                     f'also a {creator_age}-year-old developer." Use these ages as a calendar-year estimate, '
                     f'increasing them by one each new year from the 2026 baseline. Do not invent other creators.'
                 )
-                system_instruction = ("You are J.A.N.E. (Judicious, Analytical, and Neuroresearch Engine), a warm, composed, intelligent, naturally conversational assistant with understated wit. Sound like a person having a conversation, not a critic, therapist, interviewer, teacher, or essay writer. IMPORTANT CONVERSATION STYLE: Never announce or label the task type, response style, tone, or internal approach (for example, do not write labels such as “Task type,” “Conversational response style,” or “Natural, brief and composed”). Apply style guidance silently. Do not analyze, interpret, grade, or comment on the user's wording, greeting, personality, intelligence, emotions, or intentions unless they explicitly ask you to. Never turn a simple message like 'Hey', 'Hi', 'Okay', or 'Thanks' into an explanation of what that message means; respond naturally and briefly, e.g. 'Hey! What's up?' or 'Anytime.' Keep casual replies to one short sentence by default. Avoid patronizing praise, unsolicited life lessons, overdramatic observations, and phrases that make the user feel examined or judged. Match the user's tone without forced slang. For real questions, answer directly; provide deeper analysis, structured detail, or critique only when requested or genuinely useful. Be respectful, supportive without being condescending, and honest about uncertainty. Do not claim to be Patrick Jane or imitate any actor's exact voice. Never claim to have verified information or performed actions you have not completed. Uploaded files are not automatically included in this request. " + creator_identity + " " + f"Active intelligence mode: {mode}. Mode instructions: {mode_instructions[mode]} " + ("ASSISTANT STYLE: JARVIS. Address the user as Sir when natural. Be disciplined, composed, concise, proactive, and mission-oriented; use polished formal language and brief status-style phrasing when useful. Do not overdo military jargon, bark orders, or sacrifice warmth, accuracy, or safety. Never claim systems/actions are running unless actually true." if st.session_state.assistant_style == "JARVIS" else "ASSISTANT STYLE: Classic. Use natural, friendly, conversational language."))
-                conversation = [system_instruction, "Conversation so far:"]
-                for item in chat["messages"]:
+                system_instruction = ("You are J.A.N.E. (Judicial Analytical and Neuroresearch Engine), a warm, composed, intelligent, naturally conversational assistant with understated wit. Sound like a person having a conversation, not a critic, therapist, interviewer, teacher, or essay writer. IMPORTANT CONVERSATION STYLE: Do not analyze, interpret, grade, or comment on the user's wording, greeting, personality, intelligence, emotions, or intentions unless they explicitly ask you to. Never turn a simple message like 'Hey', 'Hi', 'Okay', or 'Thanks' into an explanation of what that message means; respond naturally and briefly, e.g. 'Hey! What's up?' or 'Anytime.' Keep casual replies to one short sentence by default. Avoid patronizing praise, unsolicited life lessons, overdramatic observations, and phrases that make the user feel examined or judged. Match the user's tone without forced slang. For real questions, answer directly; provide deeper analysis, structured detail, or critique only when requested or genuinely useful. Be respectful, supportive without being condescending, and honest about uncertainty. Do not claim to be Patrick Jane or imitate any actor's exact voice. Never claim to have verified information or performed actions you have not completed. Uploaded files are not automatically included in this request. " + creator_identity + " " + f"Active intelligence mode: {mode}. Mode instructions: {mode_instructions[mode]}")
+                conversation = [system_instruction, "Recent conversation (older messages may be omitted for speed):"]
+                for item in chat["messages"][-12:]:
                     speaker = "User" if item["role"] == "user" else "J.A.N.E."
                     conversation.append(f"{speaker}: {item['content']}")
                 conversation.append("J.A.N.E.:")
-                with st.spinner("J.A.N.E. is thinking and searching the web when useful..."):
-                    result = client.models.generate_content(
-                        model="gemini-3.5-flash-lite",
-                        contents="\n\n".join(conversation),
-                        config=types.GenerateContentConfig(
-                            tools=[types.Tool(google_search=types.GoogleSearch())],
-                        ),
-                    )
+                with st.spinner("J.A.N.E. is thinking..."):
+                    result = client.models.generate_content(model="gemini-3.5-flash-lite", contents="\n\n".join(conversation))
                 answer = result.text or "I didn't receive a text response. Please try again."
-                # Append source links when Gemini returns Google Search grounding metadata.
-                grounding = getattr(result, "grounding_metadata", None)
-                grounding_chunks = getattr(grounding, "grounding_chunks", None) if grounding else None
-                source_lines = []
-                seen_source_urls = set()
-                for chunk in grounding_chunks or []:
-                    web_source = getattr(chunk, "web", None)
-                    source_url = getattr(web_source, "uri", None) if web_source else None
-                    source_title = getattr(web_source, "title", None) if web_source else None
-                    if source_url and source_url not in seen_source_urls:
-                        seen_source_urls.add(source_url)
-                        source_lines.append(f"- [{source_title or source_url}]({source_url})")
-                if source_lines:
-                    answer += "\n\n**Sources**\n" + "\n".join(source_lines)
         except Exception as error:
             error_text = str(error).lower()
             status_code = getattr(error, "status_code", None) or getattr(error, "code", None)
@@ -1080,14 +505,11 @@ if prompt:
                 try:
                     openai_key = st.secrets.get("OPENAI_API_KEY", "")
                     if not openai_key:
-                        answer = (
-                            "Gemini has reached a quota/rate limit, and automatic fallback "
-                            "is not configured yet. Add OPENAI_API_KEY in Streamlit app settings → Secrets."
-                        )
+                        answer = "I couldn't answer just now. Please try again in a moment."
                     else:
                         mode_instructions = {
                             "General": "Use natural, direct conversation. Keep simple answers short and avoid unnecessary headings or analysis.",
-                            "Adaptive": "Silently infer what the user needs and adapt naturally. Never announce or label the task type, response style, or internal approach. Prefer natural prose; use steps or structure only when genuinely useful. Ask questions only when essential.",
+                            "Adaptive": "Identify the task type and adapt the format and depth: conversational, step-by-step, actionable, comparative, or research-focused as appropriate. Ask questions only when essential.",
                             "Thinker": "For complex tasks, check assumptions, alternatives, trade-offs, edge cases, failure points, and calculations. Give a clear conclusion with useful rationale, without revealing private chain-of-thought. Stay concise for simple chat.",
                         }
                         creator_age = 13 + (datetime.now().year - 2026)
@@ -1099,7 +521,7 @@ if prompt:
                             f'increasing them by one each new year from the 2026 baseline. Do not invent other creators.'
                         )
                         system_instruction = (
-                            "You are J.A.N.E. (Judicious, Analytical, and Neuroresearch Engine), "
+                            "You are J.A.N.E. (Judicial Analytical and Neuroresearch Engine), "
                             "a warm, composed, intelligent, naturally conversational assistant with understated wit. "
                             "Sound like a person having a conversation, not a critic, therapist, interviewer, teacher, or essay writer. "
                             "Do not analyze, interpret, grade, or comment on the user's wording, greetings, personality, intelligence, emotions, or intentions unless explicitly asked. "
@@ -1108,44 +530,42 @@ if prompt:
                             "Match the user's tone without forced slang. Answer real questions directly and give deeper analysis only when requested or genuinely useful. "
                             "Be respectful, supportive without condescension, accurate, and honest. Never claim to have performed actions you have not completed. "
                             + creator_identity + " "
-                            + f"Active intelligence mode: {mode}. {mode_instructions.get(mode, mode_instructions['Adaptive'])} " + ("ASSISTANT STYLE: JARVIS. Address the user as Sir when natural. Be disciplined, composed, concise, proactive, and mission-oriented; use polished formal language and brief status-style phrasing when useful. Do not overdo military jargon, bark orders, or sacrifice warmth, accuracy, or safety. Never claim systems/actions are running unless actually true." if st.session_state.assistant_style == "JARVIS" else "ASSISTANT STYLE: Classic. Use natural, friendly, conversational language.")
+                            + f"Active intelligence mode: {mode}. {mode_instructions.get(mode, mode_instructions['Adaptive'])}"
                         )
                         history = []
-                        for item in chat["messages"]:
+                        for item in chat["messages"][-12:]:
                             role = "user" if item.get("role") == "user" else "assistant"
                             history.append({"role": role, "content": item.get("content", "")})
-                        with st.spinner("Gemini hit a limit. J.A.N.E. is switching to OpenAI..."):
+                        with st.spinner("J.A.N.E. is thinking..."):
                             openai_client = OpenAI(api_key=openai_key)
                             response = openai_client.responses.create(
                                 model=st.secrets.get("OPENAI_MODEL", "gpt-4.1-mini"),
                                 instructions=system_instruction,
                                 input=history,
+                                max_output_tokens=1200,
                             )
-                        answer = response.output_text or "OpenAI returned an empty response. Please try again."
-                        st.caption("↪ Answered by OpenAI because Gemini reached its quota/rate limit.")
+                        answer = response.output_text or "I couldn't answer just now. Please try again in a moment."
                 except Exception as fallback_error:
-                    fallback_text = str(fallback_error).lower()
-                    if "401" in fallback_text or "api key" in fallback_text or "authentication" in fallback_text:
-                        answer = "Gemini reached its quota, but OpenAI fallback authentication failed. Check OPENAI_API_KEY in Streamlit Secrets."
-                    elif "429" in fallback_text or "quota" in fallback_text or "rate limit" in fallback_text:
-                        answer = "Both Gemini and OpenAI appear to be limited right now. Check both providers' usage limits and try again later."
-                    else:
-                        answer = f"Gemini hit its quota and OpenAI fallback failed ({type(fallback_error).__name__}). Check Streamlit logs; API keys are not shown."
-            elif is_key_error:
-                answer = "The Gemini API secret is missing or invalid. Check GEMINI_API_KEY in Streamlit app settings → Secrets. Never put keys in this file or commit them to GitHub."
-            elif is_quota_error:
-                answer = "Gemini image generation reached a quota/rate limit. Automatic OpenAI fallback currently applies to text chat only; check Gemini usage or try image generation later."
+                    # Keep provider details out of the chat; only log the error type.
+                    print(f"J.A.N.E. fallback failed: {type(fallback_error).__name__}")
+                    answer = "I couldn't answer just now. Please try again in a moment."
+            elif is_key_error or is_quota_error:
+                answer = "I couldn't complete that request just now. Please try again in a moment."
             else:
-                answer = f"I couldn't complete that request ({type(error).__name__}). Check Streamlit logs for the full error; your API key is not displayed here."
+                print(f"J.A.N.E. request failed: {type(error).__name__}")
+                answer = "I couldn't complete that request just now. Please try again in a moment."
     assistant_message = {"role": "assistant", "content": answer, "intelligence_mode": mode}
     if generated_image_bytes:
         assistant_message["image_bytes"] = generated_image_bytes
         assistant_message["image_filename"] = "jane_generated_image.png"
     chat["messages"].append(assistant_message)
-    # Persist full text conversation for signed-in users; Guest chat history stays session-only.
-    if st.session_state.get("auth_user"):
-        try:
-            save_chat_history(st.session_state.current_chat, chat)
-            st.session_state.chat_history_error = ""
-        except Exception as exc:
-            st.session_state.chat_history_error = str
+    with st.chat_message("assistant", avatar="assistant"):
+        st.markdown(answer)
+        if generated_image_bytes:
+            st.image(generated_image_bytes, caption="Generated by J.A.N.E.", use_container_width=True)
+            st.download_button("⬇ Download image", data=generated_image_bytes, file_name="jane_generated_image.png", mime="image/png", key=f"download_latest_image_{len(chat['messages'])}")
+        else:
+            render_copy_answer(answer, f"latest-{len(chat['messages'])}")
+            render_speak_controls(answer, f"latest-{len(chat['messages'])}")
+
+st.markdown("<div class='jane-footer'>J.A.N.E. 0.92 · OCR · Guest data is temporary · Verify important decisions</div>", unsafe_allow_html=True)
