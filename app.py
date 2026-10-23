@@ -93,31 +93,66 @@ button.addEventListener("click",async()=>{{try{{await navigator.clipboard.writeT
 
 
 def render_speak_controls(content, key):
-    """Read replies with browser/device speech synthesis, without a TTS API call."""
+    """Generate real ElevenLabs audio when the user presses Read aloud."""
     safe_key = "voice_" + "".join(ch if ch.isalnum() else "_" for ch in str(key))
-    text_payload = json.dumps(str(content or "").strip()[:12000], ensure_ascii=False).replace("</", "<\\/")
-    speed = float(st.session_state.get("voice_speed", 1.0))
-    components.html(f'''<div style="font-family:Arial,sans-serif;display:flex;gap:8px;align-items:center;background:transparent">
-<button id="speak-{safe_key}" style="background:#a10f2b;color:white;border:0;border-radius:18px;padding:8px 13px;cursor:pointer">🔊 Read aloud</button>
-<button id="stop-{safe_key}" style="background:#171217;color:#eee;border:1px solid #49303b;border-radius:18px;padding:8px 13px;cursor:pointer">■ Stop</button>
-</div>
-<script>
-(()=>{{
- const text={text_payload};
- const rate={speed};
- const speak=document.getElementById("speak-{safe_key}");
- const stop=document.getElementById("stop-{safe_key}");
- speak.addEventListener("click",()=>{{
-   if(!text)return;
-   if(!("speechSynthesis" in window)||!("SpeechSynthesisUtterance" in window))return;
-   window.speechSynthesis.cancel();
-   const utterance=new SpeechSynthesisUtterance(text);
-   utterance.rate=Math.max(0.5,Math.min(3,rate));
-   window.speechSynthesis.speak(utterance);
- }});
- stop.addEventListener("click",()=>{{if("speechSynthesis" in window)window.speechSynthesis.cancel();}});
-}})();
-</script>''', height=52, scrolling=False)
+    audio_state_key = f"eleven_audio_{safe_key}"
+    error_state_key = f"eleven_error_{safe_key}"
+
+    if st.button("🔊 Read aloud", key=f"speak_{safe_key}"):
+        api_key = str(st.secrets.get("ELEVENLABS_API_KEY", "")).strip()
+        voice_id = str(st.secrets.get("ELEVENLABS_VOICE_ID", "")).strip()
+        text_to_speak = str(content or "").strip()[:4500]
+        st.session_state.pop(audio_state_key, None)
+        st.session_state.pop(error_state_key, None)
+
+        if not api_key or not voice_id:
+            st.session_state[error_state_key] = (
+                "ElevenLabs is not configured. Add ELEVENLABS_API_KEY and "
+                "ELEVENLABS_VOICE_ID in Streamlit Secrets."
+            )
+        elif not text_to_speak:
+            st.session_state[error_state_key] = "There is no text to read aloud."
+        else:
+            payload = json.dumps({
+                "text": text_to_speak,
+                "model_id": "eleven_flash_v2_5",
+                "voice_settings": {"stability": 0.55, "similarity_boost": 0.75},
+            }).encode("utf-8")
+            request = urllib.request.Request(
+                f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
+                data=payload,
+                headers={
+                    "xi-api-key": api_key,
+                    "Content-Type": "application/json",
+                    "Accept": "audio/mpeg",
+                },
+                method="POST",
+            )
+            try:
+                with urllib.request.urlopen(request, timeout=45) as response:
+                    audio_bytes = response.read()
+                if audio_bytes:
+                    st.session_state[audio_state_key] = audio_bytes
+                else:
+                    st.session_state[error_state_key] = "ElevenLabs returned empty audio."
+            except urllib.error.HTTPError as exc:
+                # Do not expose credentials or raw response data to the user.
+                if exc.code in (401, 403):
+                    message = "ElevenLabs rejected the API key or voice access. Check the key and voice ID in Streamlit Secrets."
+                elif exc.code == 404:
+                    message = "ElevenLabs could not find that voice ID. Copy the ID from your ElevenLabs voice page."
+                elif exc.code == 429:
+                    message = "ElevenLabs usage limit reached. Check your plan and usage, then try again."
+                else:
+                    message = f"ElevenLabs request failed (HTTP {exc.code}). Check your ElevenLabs settings and try again."
+                st.session_state[error_state_key] = message
+            except (urllib.error.URLError, TimeoutError, OSError):
+                st.session_state[error_state_key] = "Couldn't connect to ElevenLabs. Check the connection and try again."
+
+    if st.session_state.get(audio_state_key):
+        st.audio(st.session_state[audio_state_key], format="audio/mpeg")
+    if st.session_state.get(error_state_key):
+        st.caption("⚠️ " + st.session_state[error_state_key])
 
 # -------------------- STYLING --------------------
 st.markdown(r'''<style>
