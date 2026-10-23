@@ -2,6 +2,8 @@ import io
 import base64
 import json
 import uuid
+import urllib.request
+import urllib.error
 from pathlib import Path
 from datetime import datetime
 
@@ -21,7 +23,7 @@ if "chats" not in st.session_state:
     st.session_state.current_chat = first_id
 for key, default in {
     "profile_name": "Explorer", "api_enabled": True, "uploaded_files": {},
-    "pending_prompt": None, "intelligence_mode": "Adaptive", "assistant_style": "Classic",
+    "pending_prompt": None, "intelligence_mode": "Adaptive",
     "auth_user": None, "auth_token": None, "auth_mode": "signin", "voice_speed": 1.0,
 }.items():
     if key not in st.session_state:
@@ -91,27 +93,31 @@ button.addEventListener("click",async()=>{{try{{await navigator.clipboard.writeT
 
 
 def render_speak_controls(content, key):
-    """Read a reply aloud using the browser/device system voice only."""
+    """Read replies with browser/device speech synthesis, without a TTS API call."""
     safe_key = "voice_" + "".join(ch if ch.isalnum() else "_" for ch in str(key))
-    payload = json.dumps(str(content or "").strip()[:4500], ensure_ascii=False).replace("</", "<\\/")
+    text_payload = json.dumps(str(content or "").strip()[:12000], ensure_ascii=False).replace("</", "<\\/")
     speed = float(st.session_state.get("voice_speed", 1.0))
-    if st.button("🔊 Read aloud", key=f"speak_{safe_key}"):
-        components.html(f'''<script>
-const textToSpeak = {payload};
-try {{
-  if (!("speechSynthesis" in window)) {{
-    window.parent.postMessage({{type:"jane-system-voice-unavailable"}}, "*");
-  }} else {{
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(textToSpeak);
-    utterance.rate = {speed};
-    const voices = window.speechSynthesis.getVoices();
-    const preferred = voices.find(v => v.default) || voices.find(v => /^en(-|$)/i.test(v.lang));
-    if (preferred) utterance.voice = preferred;
-    window.speechSynthesis.speak(utterance);
-  }}
-}} catch (e) {{ console.error("J.A.N.E. system voice error", e); }}
-</script>''', height=0)
+    components.html(f'''<div style="font-family:Arial,sans-serif;display:flex;gap:8px;align-items:center;background:transparent">
+<button id="speak-{safe_key}" style="background:#a10f2b;color:white;border:0;border-radius:18px;padding:8px 13px;cursor:pointer">🔊 Read aloud</button>
+<button id="stop-{safe_key}" style="background:#171217;color:#eee;border:1px solid #49303b;border-radius:18px;padding:8px 13px;cursor:pointer">■ Stop</button>
+</div>
+<script>
+(()=>{{
+ const text={text_payload};
+ const rate={speed};
+ const speak=document.getElementById("speak-{safe_key}");
+ const stop=document.getElementById("stop-{safe_key}");
+ speak.addEventListener("click",()=>{{
+   if(!text)return;
+   if(!("speechSynthesis" in window)||!("SpeechSynthesisUtterance" in window))return;
+   window.speechSynthesis.cancel();
+   const utterance=new SpeechSynthesisUtterance(text);
+   utterance.rate=Math.max(0.5,Math.min(3,rate));
+   window.speechSynthesis.speak(utterance);
+ }});
+ stop.addEventListener("click",()=>{{if("speechSynthesis" in window)window.speechSynthesis.cancel();}});
+}})();
+</script>''', height=52, scrolling=False)
 
 # -------------------- STYLING --------------------
 st.markdown(r'''<style>
@@ -284,48 +290,11 @@ if st.session_state.jane_entry_screen != "workspace":
     st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 
-# -------------------- UI COLOR THEMES --------------------
-THEMES = {
-    "Red":    {"accent": "#ff465c", "bright": "#ff7182", "glow": "255,70,92", "deep": "#5a1023", "bubble": "103,15,37"},
-    "Blue":   {"accent": "#4da3ff", "bright": "#83c0ff", "glow": "77,163,255", "deep": "#102b52", "bubble": "15,43,83"},
-    "Green":  {"accent": "#35d07f", "bright": "#7af0ae", "glow": "53,208,127", "deep": "#0e422d", "bubble": "12,66,44"},
-    "Pink":   {"accent": "#ff5fc8", "bright": "#ff9cde", "glow": "255,95,200", "deep": "#55103f", "bubble": "83,16,63"},
-    "Purple": {"accent": "#a879ff", "bright": "#c5a6ff", "glow": "168,121,255", "deep": "#30154f", "bubble": "48,21,79"},
-    "White":  {"accent": "#f4f4f7", "bright": "#ffffff", "glow": "220,220,235", "deep": "#3a3a46", "bubble": "55,55,68"},
-}
-theme = THEMES.get(st.session_state.get("ui_theme", "Red"), THEMES["Red"])
-st.markdown(f'''<style>
-:root{{--jane-red:{theme["accent"]};--jane-border:rgba({theme["glow"]},.42);--jane-accent:{theme["accent"]};}}
-.jane-title{{-webkit-text-stroke-color:{theme["accent"]}!important;text-shadow:0 0 5px {theme["accent"]},0 0 16px rgba({theme["glow"]},.8)!important;}}
-.jane-logo{{filter:drop-shadow(0 0 7px rgba({theme["glow"]},.75))!important;}}
-.energy-core{{border-color:rgba({theme["glow"]},.85)!important;box-shadow:0 0 12px {theme["accent"]},inset 0 0 15px rgba({theme["glow"]},.4)!important;}}
-.energy-core:before{{border-color:rgba({theme["glow"]},.85)!important;}}
-.energy-core:after{{border-color:rgba({theme["glow"]},.65)!important;}}
-.core-dot{{background:{theme["accent"]}!important;box-shadow:0 0 9px {theme["accent"]},0 0 22px {theme["accent"]}!important;}}
-[data-testid="stChatMessage"]:has(.jane-user-marker) [data-testid="stChatMessageContent"],
-[data-testid="stChatMessage"]:has(.jane-user-marker) .stChatMessageContent{{
- background:linear-gradient(115deg,rgba({theme["bubble"]},.9),rgba({theme["glow"]},.10),rgba({theme["bubble"]},.94))!important;
- border-color:rgba({theme["glow"]},.55)!important;
- box-shadow:0 5px 24px rgba({theme["glow"]},.12),inset 0 1px rgba(255,255,255,.055)!important;
-}}
-[data-testid="stChatInput"]{{border-color:{theme["accent"]}!important;background:linear-gradient(125deg,{theme["accent"]} 0%,{theme["deep"]} 32%,#1b0e16 67%,#08080b 100%)!important;}}
-[data-testid="stChatInput"]:focus-within{{border-color:{theme["bright"]}!important;box-shadow:0 0 0 1px {theme["accent"]},0 5px 24px rgba(0,0,0,.38)!important;}}
-[data-testid="stChatInput"] button{{background:{theme["accent"]}!important;color:{"#17121a" if st.session_state.get("ui_theme")=="White" else "#fff"}!important;}}
-.stButton>button:hover{{border-color:{theme["accent"]}!important;}}
-h1,h2,h3{{color:{theme["accent"]}!important;}}
-.jane-login-title,.jane-card-icon{{color:{theme["accent"]}!important;text-shadow:0 0 8px {theme["accent"]},0 0 24px rgba({theme["glow"]},.65)!important;}}
-.jane-login-kicker,.jane-feature-rail span{{color:{theme["accent"]}!important;}}
-.jane-login-card{{border-color:rgba({theme["glow"]},.7)!important;}}
-.jane-login-foot:before,.jane-login-foot:after{{background:linear-gradient(90deg,transparent,{theme["accent"]})!important;}}
-</style>''', unsafe_allow_html=True)
-
 # -------------------- SIDEBAR --------------------
 with st.sidebar:
     st.markdown("## 🔴 J.A.N.E.")
     st.caption("Your personal intelligence workspace")
     with st.expander("⚙️ Settings", expanded=False):
-        st.selectbox("UI accent color", ["Red", "Blue", "Green", "Pink", "Purple", "White"], key="ui_theme",
-                     help="Change J.A.N.E.'s accent colors without changing its features.")
         st.slider(
             "System voice speed", min_value=0.5, max_value=3.0,
             value=float(st.session_state.get("voice_speed", 1.0)), step=0.1,
@@ -443,17 +412,8 @@ for message_index, message in enumerate(chat["messages"]):
 
 if st.session_state.uploaded_files:
     st.caption("📎 Attached in this session: " + ", ".join(st.session_state.uploaded_files.keys()))
-style_col, intelligence_col = st.columns([1, 1])
-with style_col:
-    st.session_state.assistant_style = st.selectbox(
-        "Assistant style", ["Classic", "Jarvis"],
-        index=["Classic", "Jarvis"].index(st.session_state.get("assistant_style", "Classic")),
-        key="assistant_style_selector",
-        help="Choose Classic or Jarvis assistant style. This is separate from intelligence depth.",
-    )
-with intelligence_col:
-    if st.button(f"◉ Intelligence: {st.session_state.intelligence_mode} ▾", key="open_intelligence_dialog", help="Choose intelligence depth"):
-        intelligence_dialog()
+if st.button(f"◉ {st.session_state.intelligence_mode} ▾", key="open_intelligence_dialog", help="Choose how J.A.N.E. responds"):
+    intelligence_dialog()
 image_mode = st.selectbox(
     "J.A.N.E. mode",
     ["Chat", "Generate image"],
@@ -506,8 +466,6 @@ if prompt:
                     "General": "Use natural, direct conversation. Keep simple answers short, avoid unnecessary headings and analysis, and expand only when asked or genuinely needed.",
                     "Adaptive": "First identify the task type, then choose the most useful response style: conversational for chat, step-by-step for learning or troubleshooting, actionable for coding, criteria-based for comparisons, structured for planning, and careful about evidence and uncertainty for research. Ask a clarifying question only when essential.",
                     "Thinker": "For complex questions, examine assumptions, alternatives, trade-offs, edge cases, likely failure points, and calculation consistency before answering. Separate established facts from inference, then give a clear conclusion and useful supporting rationale. Stay concise for simple questions and never reveal private chain-of-thought.",
-                    "Classic": "Use the original balanced J.A.N.E. style: clear, reliable, friendly answers; explain enough to be useful, organize longer replies naturally, and avoid unnecessary meta-commentary.",
-                    "Jarvis": "Act like a proactive executive assistant: understand the goal, give a concise briefing, surface important risks or missing details, and recommend practical next steps. Be polished and efficient, but do not claim to perform actions you have not done.",
                 }
                 creator_age = 13 + (datetime.now().year - 2026)
                 creator_identity = (
@@ -517,7 +475,7 @@ if prompt:
                     f'also a {creator_age}-year-old developer." Use these ages as a calendar-year estimate, '
                     f'increasing them by one each new year from the 2026 baseline. Do not invent other creators.'
                 )
-                system_instruction = ("You are J.A.N.E. (Judicial Analytical and Neuroresearch Engine), a warm, composed, intelligent, naturally conversational assistant with understated wit. Sound like a person having a conversation, not a critic, therapist, interviewer, teacher, or essay writer. IMPORTANT CONVERSATION STYLE: Do not analyze, interpret, grade, or comment on the user's wording, greeting, personality, intelligence, emotions, or intentions unless they explicitly ask you to. Never turn a simple message like 'Hey', 'Hi', 'Okay', or 'Thanks' into an explanation of what that message means; respond naturally and briefly, e.g. 'Hey! What's up?' or 'Anytime.' Keep casual replies to one short sentence by default. Avoid patronizing praise, unsolicited life lessons, overdramatic observations, and phrases that make the user feel examined or judged. Match the user's tone without forced slang. For real questions, answer directly; provide deeper analysis, structured detail, or critique only when requested or genuinely useful. Be respectful, supportive without being condescending, and honest about uncertainty. Do not claim to be Patrick Jane or imitate any actor's exact voice. Never claim to have verified information or performed actions you have not completed. Uploaded files are not automatically included in this request. " + creator_identity + " " + f"Active intelligence mode: {mode}. Mode instructions: {mode_instructions[mode]} Active assistant style: {st.session_state.get('assistant_style', 'Classic')}. If Classic, use a balanced familiar assistant style. If Jarvis, act as a proactive executive assistant with concise briefings and practical next steps.")
+                system_instruction = ("You are J.A.N.E. (Judicial Analytical and Neuroresearch Engine), a warm, composed, intelligent, naturally conversational assistant with understated wit. Sound like a person having a conversation, not a critic, therapist, interviewer, teacher, or essay writer. IMPORTANT CONVERSATION STYLE: Do not analyze, interpret, grade, or comment on the user's wording, greeting, personality, intelligence, emotions, or intentions unless they explicitly ask you to. Never turn a simple message like 'Hey', 'Hi', 'Okay', or 'Thanks' into an explanation of what that message means; respond naturally and briefly, e.g. 'Hey! What's up?' or 'Anytime.' Keep casual replies to one short sentence by default. Avoid patronizing praise, unsolicited life lessons, overdramatic observations, and phrases that make the user feel examined or judged. Match the user's tone without forced slang. For real questions, answer directly; provide deeper analysis, structured detail, or critique only when requested or genuinely useful. Be respectful, supportive without being condescending, and honest about uncertainty. Do not claim to be Patrick Jane or imitate any actor's exact voice. Never claim to have verified information or performed actions you have not completed. Uploaded files are not automatically included in this request. " + creator_identity + " " + f"Active intelligence mode: {mode}. Mode instructions: {mode_instructions[mode]}")
                 conversation = [system_instruction, "Recent conversation (older messages may be omitted for speed):"]
                 for item in chat["messages"][-12:]:
                     speaker = "User" if item["role"] == "user" else "J.A.N.E."
@@ -553,8 +511,6 @@ if prompt:
                             "General": "Use natural, direct conversation. Keep simple answers short and avoid unnecessary headings or analysis.",
                             "Adaptive": "Identify the task type and adapt the format and depth: conversational, step-by-step, actionable, comparative, or research-focused as appropriate. Ask questions only when essential.",
                             "Thinker": "For complex tasks, check assumptions, alternatives, trade-offs, edge cases, failure points, and calculations. Give a clear conclusion with useful rationale, without revealing private chain-of-thought. Stay concise for simple chat.",
-                            "Classic": "Use the original balanced J.A.N.E. style: clear, reliable, friendly answers; explain enough to be useful, organize longer replies naturally, and avoid unnecessary meta-commentary.",
-                            "Jarvis": "Act like a proactive executive assistant: understand the goal, give a concise briefing, surface important risks or missing details, and recommend practical next steps. Be polished and efficient, but do not claim to perform actions you have not done.",
                         }
                         creator_age = 13 + (datetime.now().year - 2026)
                         creator_identity = (
@@ -574,7 +530,7 @@ if prompt:
                             "Match the user's tone without forced slang. Answer real questions directly and give deeper analysis only when requested or genuinely useful. "
                             "Be respectful, supportive without condescension, accurate, and honest. Never claim to have performed actions you have not completed. "
                             + creator_identity + " "
-                            + f"Active intelligence mode: {mode}. {mode_instructions.get(mode, mode_instructions['Adaptive'])} Active assistant style: {st.session_state.get('assistant_style', 'Classic')}. If Classic, use a balanced familiar assistant style. If Jarvis, act as a proactive executive assistant with concise briefings and practical next steps."
+                            + f"Active intelligence mode: {mode}. {mode_instructions.get(mode, mode_instructions['Adaptive'])}"
                         )
                         history = []
                         for item in chat["messages"][-12:]:
