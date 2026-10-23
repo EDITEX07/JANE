@@ -940,11 +940,12 @@ if prompt:
                 }
                 creator_age = 13 + (datetime.now().year - 2026)
                 creator_identity = (
-                    f"If asked who made, created, or developed you, answer clearly and consistently: "
-                    f'"I was made by Vihaan Shirale, a {creator_age}-year-old developer known professionally '
-                    f'as EDITEX07 in the digital world. His development partner is Tanish Khandare, '
-                    f'also a {creator_age}-year-old developer." Use these ages as a calendar-year estimate, '
-                    f'increasing them by one each new year from the 2026 baseline. Do not invent other creators.'
+                    "Identity rules: You are J.A.N.E. (Judicial Analytical and Neuroresearch Engine), "
+                    "the user's assistant project. If asked who created J.A.N.E., identify its project creator "
+                    "as Vihaan Shirale (EDITEX07), with Tanish Khandare as development partner. "
+                    "Do not say J.A.N.E. was created by ChatGPT or by Gemini. Do not invent ages or biographical details. "
+                    "If explicitly asked which underlying model or provider powers the current response, answer honestly "
+                    "that the app may use configured AI services; distinguish the model provider from J.A.N.E.'s project creator."
                 )
                 system_instruction = ("You are J.A.N.E. (Judicious, Analytical, and Neuroresearch Engine), a warm, composed, intelligent, naturally conversational assistant with understated wit. Sound like a person having a conversation, not a critic, therapist, interviewer, teacher, or essay writer. IMPORTANT CONVERSATION STYLE: Never announce or label the task type, response style, tone, or internal approach (for example, do not write labels such as “Task type,” “Conversational response style,” or “Natural, brief and composed”). Apply style guidance silently. Do not analyze, interpret, grade, or comment on the user's wording, greeting, personality, intelligence, emotions, or intentions unless they explicitly ask you to. Never turn a simple message like 'Hey', 'Hi', 'Okay', or 'Thanks' into an explanation of what that message means; respond naturally and briefly, e.g. 'Hey! What's up?' or 'Anytime.' Keep casual replies to one short sentence by default. Avoid patronizing praise, unsolicited life lessons, overdramatic observations, and phrases that make the user feel examined or judged. Match the user's tone without forced slang. For real questions, answer directly; provide deeper analysis, structured detail, or critique only when requested or genuinely useful. Be respectful, supportive without being condescending, and honest about uncertainty. Do not claim to be Patrick Jane or imitate any actor's exact voice. Never claim to have verified information or performed actions you have not completed. Uploaded files are not automatically included in this request. " + creator_identity + " " + f"Active intelligence mode: {mode}. Mode instructions: {mode_instructions[mode]} " + ("ASSISTANT STYLE: Jarvis. Address the user as Sir when natural. Be disciplined, composed, concise, proactive, and mission-oriented; use polished formal language and brief status-style phrasing when useful. Do not overdo military jargon, bark orders, or sacrifice warmth, accuracy, or safety. Never claim systems/actions are running unless actually true." if st.session_state.assistant_style == "Jarvis" else "ASSISTANT STYLE: Classic. Use natural, friendly, conversational language."))
                 conversation = [system_instruction, "Conversation so far:"]
@@ -997,8 +998,7 @@ if prompt:
                     openai_key = st.secrets.get("OPENAI_API_KEY", "")
                     if not openai_key:
                         answer = (
-                            "Gemini has reached a quota/rate limit, and automatic fallback "
-                            "is not configured yet. Add OPENAI_API_KEY in Streamlit app settings → Secrets."
+                            "J.A.N.E. is temporarily unable to answer. Please try again in a little while."
                         )
                     else:
                         mode_instructions = {
@@ -1008,11 +1008,12 @@ if prompt:
                         }
                         creator_age = 13 + (datetime.now().year - 2026)
                         creator_identity = (
-                            f"If asked who made, created, or developed you, answer clearly and consistently: "
-                            f'"I was made by Vihaan Shirale, a {creator_age}-year-old developer known professionally '
-                            f'as EDITEX07 in the digital world. His development partner is Tanish Khandare, '
-                            f'also a {creator_age}-year-old developer." Use these ages as a calendar-year estimate, '
-                            f'increasing them by one each new year from the 2026 baseline. Do not invent other creators.'
+                            "Identity rules: You are J.A.N.E. (Judicial Analytical and Neuroresearch Engine), "
+                            "the user's assistant project. If asked who created J.A.N.E., identify its project creator "
+                            "as Vihaan Shirale (EDITEX07), with Tanish Khandare as development partner. "
+                            "Do not say J.A.N.E. was created by ChatGPT or by Gemini. Do not invent ages or biographical details. "
+                            "If explicitly asked which underlying model or provider powers the current response, answer honestly "
+                            "that the app may use configured AI services; distinguish the model provider from J.A.N.E.'s project creator."
                         )
                         system_instruction = (
                             "You are J.A.N.E. (Judicious, Analytical, and Neuroresearch Engine), "
@@ -1030,7 +1031,7 @@ if prompt:
                         for item in chat["messages"]:
                             role = "user" if item.get("role") == "user" else "assistant"
                             history.append({"role": role, "content": item.get("content", "")})
-                        with st.spinner("Gemini hit a limit. J.A.N.E. is switching to OpenAI..."):
+                        with st.spinner("J.A.N.E. is thinking..."):
                             openai_client = OpenAI(api_key=openai_key)
                             response = openai_client.responses.create(
                                 model=st.secrets.get("OPENAI_MODEL", "gpt-4.1-mini"),
@@ -1038,19 +1039,18 @@ if prompt:
                                 input=history,
                             )
                         answer = response.output_text or "OpenAI returned an empty response. Please try again."
-                        st.caption("↪ Answered by OpenAI because Gemini reached its quota/rate limit.")
                 except Exception as fallback_error:
                     fallback_text = str(fallback_error).lower()
                     if "401" in fallback_text or "api key" in fallback_text or "authentication" in fallback_text:
-                        answer = "Gemini reached its quota, but OpenAI fallback authentication failed. Check OPENAI_API_KEY in Streamlit Secrets."
+                        answer = "J.A.N.E. is temporarily unavailable. Please try again later."
                     elif "429" in fallback_text or "quota" in fallback_text or "rate limit" in fallback_text:
-                        answer = "Both Gemini and OpenAI appear to be limited right now. Check both providers' usage limits and try again later."
+                        answer = "J.A.N.E. is temporarily busy. Please try again in a little while."
                     else:
                         answer = f"Gemini hit its quota and OpenAI fallback failed ({type(fallback_error).__name__}). Check Streamlit logs; API keys are not shown."
             elif is_key_error:
-                answer = "The Gemini API secret is missing or invalid. Check GEMINI_API_KEY in Streamlit app settings → Secrets. Never put keys in this file or commit them to GitHub."
+                answer = "J.A.N.E. is temporarily unavailable. Please check the app configuration and try again."
             elif is_quota_error:
-                answer = "Gemini image generation reached a quota/rate limit. Automatic OpenAI fallback currently applies to text chat only; check Gemini usage or try image generation later."
+                answer = "Image generation is temporarily unavailable. Please try again later."
             else:
                 answer = f"I couldn't complete that request ({type(error).__name__}). Check Streamlit logs for the full error; your API key is not displayed here."
     assistant_message = {"role": "assistant", "content": answer, "intelligence_mode": mode}
