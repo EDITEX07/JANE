@@ -168,31 +168,82 @@ button.addEventListener("click",async()=>{{try{{await navigator.clipboard.writeT
 
 
 def render_speak_controls(content, key):
-    """Read replies with browser/device speech synthesis, without a TTS API call."""
+    """Generate reply audio through ElevenLabs when configured."""
     safe_key = "voice_" + "".join(ch if ch.isalnum() else "_" for ch in str(key))
-    text_payload = json.dumps(str(content or "").strip()[:12000], ensure_ascii=False).replace("</", "<\\/")
-    speed = float(st.session_state.get("voice_speed", 1.0))
-    components.html(f'''<div style="font-family:Arial,sans-serif;display:flex;gap:8px;align-items:center;background:transparent">
-<button id="speak-{safe_key}" style="background:#a10f2b;color:white;border:0;border-radius:18px;padding:8px 13px;cursor:pointer">🔊 Read aloud</button>
-<button id="stop-{safe_key}" style="background:#171217;color:#eee;border:1px solid #49303b;border-radius:18px;padding:8px 13px;cursor:pointer">■ Stop</button>
-</div>
-<script>
-(()=>{{
- const text={text_payload};
- const rate={speed};
- const speak=document.getElementById("speak-{safe_key}");
- const stop=document.getElementById("stop-{safe_key}");
- speak.addEventListener("click",()=>{{
-   if(!text)return;
-   if(!("speechSynthesis" in window)||!("SpeechSynthesisUtterance" in window))return;
-   window.speechSynthesis.cancel();
-   const utterance=new SpeechSynthesisUtterance(text);
-   utterance.rate=Math.max(0.5,Math.min(3,rate));
-   window.speechSynthesis.speak(utterance);
- }});
- stop.addEventListener("click",()=>{{if("speechSynthesis" in window)window.speechSynthesis.cancel();}});
-}})();
-</script>''', height=52, scrolling=False)
+    audio_state_key = f"generated_audio_{safe_key}"
+    text_state_key = f"generated_audio_text_{safe_key}"
+
+    if st.button("🔊 Speak with J.A.N.E. voice", key=f"speak_button_{safe_key}"):
+        try:
+            api_key = str(st.secrets.get("ELEVENLABS_API_KEY", "")).strip()
+            voice_id = str(st.secrets.get("ELEVENLABS_VOICE_ID", "")).strip()
+        except Exception:
+            api_key = ""
+            voice_id = ""
+
+        if not api_key:
+            st.error("Add ELEVENLABS_API_KEY in Streamlit app settings → Secrets.")
+        elif not voice_id:
+            st.error(
+                "Add ELEVENLABS_VOICE_ID in Streamlit Secrets too. "
+                "In ElevenLabs, open the selected Patrick voice's menu and choose Copy voice ID."
+            )
+        else:
+            speech_text = str(content or "").strip()
+            if not speech_text:
+                st.info("There is no text to speak.")
+            else:
+                # Keep individual requests within a practical length for the free tier.
+                if len(speech_text) > 4500:
+                    speech_text = speech_text[:4490].rsplit(" ", 1)[0] + "…"
+                    st.caption("This reply is long, so only its first part will be spoken.")
+                try:
+                    with st.spinner("J.A.N.E. is preparing your voice…"):
+                        payload = json.dumps({
+                            "text": speech_text,
+                            "model_id": "eleven_multilingual_v2",
+                            "voice_settings": {
+                                "stability": 0.55,
+                                "similarity_boost": 0.75,
+                                "style": 0.15,
+                                "use_speaker_boost": True,
+                            },
+                        }).encode("utf-8")
+                        request = urllib.request.Request(
+                            f"https://api.elevenlabs.io/v1/text-to-speech/{urllib.parse.quote(voice_id, safe='')}",
+                            data=payload,
+                            headers={
+                                "xi-api-key": api_key,
+                                "Content-Type": "application/json",
+                                "Accept": "audio/mpeg",
+                            },
+                            method="POST",
+                        )
+                        with urllib.request.urlopen(request, timeout=60) as response:
+                            audio_bytes = response.read()
+                    st.session_state[audio_state_key] = audio_bytes
+                    st.session_state[text_state_key] = speech_text
+                except urllib.error.HTTPError as error:
+                    try:
+                        detail = error.read().decode("utf-8", errors="replace")[:350]
+                    except Exception:
+                        detail = "No additional details returned."
+                    st.error(
+                        f"ElevenLabs voice request failed (HTTP {error.code}). "
+                        f"Check the API key, voice ID, and Text to Speech permission. Details: {detail}"
+                    )
+                except Exception as error:
+                    st.error(f"ElevenLabs voice generation failed ({type(error).__name__}). Check your connection and try again.")
+
+    if st.session_state.get(audio_state_key):
+        st.audio(st.session_state[audio_state_key], format="audio/mpeg")
+        st.download_button(
+            "⬇ Download speech",
+            data=st.session_state[audio_state_key],
+            file_name="jane_reply.mp3",
+            mime="audio/mpeg",
+            key=f"download_{safe_key}",
+        )
 
 # -------------------- STYLING --------------------
 st.markdown(r'''<style>
@@ -1097,23 +1148,4 @@ if prompt:
             save_chat_history(st.session_state.current_chat, chat)
             st.session_state.chat_history_error = ""
         except Exception as exc:
-            st.session_state.chat_history_error = str(exc)
-    # Signed-in users get automatic memory formation. Guest memory is deliberately disabled.
-    if st.session_state.get("auth_user") and not generated_image_bytes:
-        candidates = extract_memories(prompt, answer)
-        for candidate in candidates:
-            try:
-                save_memory(candidate, source="automatic")
-            except Exception:
-                # A memory write must never break the chat response.
-                pass
-    with st.chat_message("assistant", avatar="assistant"):
-        st.markdown(answer)
-        if generated_image_bytes:
-            st.image(generated_image_bytes, caption="Generated by J.A.N.E.", use_container_width=True)
-            st.download_button("⬇ Download image", data=generated_image_bytes, file_name="jane_generated_image.png", mime="image/png", key=f"download_latest_image_{len(chat['messages'])}")
-        else:
-            render_copy_answer(answer, f"latest-{len(chat['messages'])}")
-            render_speak_controls(answer, f"latest-{len(chat['messages'])}")
-
-st.markdown("<div class='jane-footer'>J.A.N.E. 0.91 · OCR · Gemini + OpenAI fallback · Guest data is temporary · Verify important decisions</div>", unsafe_allow_html=True)
+            st.session_state.chat_history_error = str
