@@ -409,10 +409,10 @@ if st.session_state.uploaded_files:
 style_col, intelligence_col = st.columns([1, 1])
 with style_col:
     st.session_state.assistant_style = st.selectbox(
-        "Assistant style", ["Classic", "Javis"],
-        index=["Classic", "Javis"].index(st.session_state.get("assistant_style", "Classic")),
+        "Assistant style", ["Classic", "Jarvis"],
+        index=["Classic", "Jarvis"].index(st.session_state.get("assistant_style", "Classic")),
         key="assistant_style_selector",
-        help="Choose Classic or Javis assistant style. This is separate from intelligence depth.",
+        help="Choose Classic or Jarvis assistant style. This is separate from intelligence depth.",
     )
 with intelligence_col:
     if st.button(f"◉ Intelligence: {st.session_state.intelligence_mode} ▾", key="open_intelligence_dialog", help="Choose intelligence depth"):
@@ -470,7 +470,7 @@ if prompt:
                     "Adaptive": "First identify the task type, then choose the most useful response style: conversational for chat, step-by-step for learning or troubleshooting, actionable for coding, criteria-based for comparisons, structured for planning, and careful about evidence and uncertainty for research. Ask a clarifying question only when essential.",
                     "Thinker": "For complex questions, examine assumptions, alternatives, trade-offs, edge cases, likely failure points, and calculation consistency before answering. Separate established facts from inference, then give a clear conclusion and useful supporting rationale. Stay concise for simple questions and never reveal private chain-of-thought.",
                     "Classic": "Use the original balanced J.A.N.E. style: clear, reliable, friendly answers; explain enough to be useful, organize longer replies naturally, and avoid unnecessary meta-commentary.",
-                    "Javis": "Act like a proactive executive assistant: understand the goal, give a concise briefing, surface important risks or missing details, and recommend practical next steps. Be polished and efficient, but do not claim to perform actions you have not done.",
+                    "Jarvis": "Act like a proactive executive assistant: understand the goal, give a concise briefing, surface important risks or missing details, and recommend practical next steps. Be polished and efficient, but do not claim to perform actions you have not done.",
                 }
                 creator_age = 13 + (datetime.now().year - 2026)
                 creator_identity = (
@@ -480,7 +480,7 @@ if prompt:
                     f'also a {creator_age}-year-old developer." Use these ages as a calendar-year estimate, '
                     f'increasing them by one each new year from the 2026 baseline. Do not invent other creators.'
                 )
-                system_instruction = ("You are J.A.N.E. (Judicial Analytical and Neuroresearch Engine), a warm, composed, intelligent, naturally conversational assistant with understated wit. Sound like a person having a conversation, not a critic, therapist, interviewer, teacher, or essay writer. IMPORTANT CONVERSATION STYLE: Do not analyze, interpret, grade, or comment on the user's wording, greeting, personality, intelligence, emotions, or intentions unless they explicitly ask you to. Never turn a simple message like 'Hey', 'Hi', 'Okay', or 'Thanks' into an explanation of what that message means; respond naturally and briefly, e.g. 'Hey! What's up?' or 'Anytime.' Keep casual replies to one short sentence by default. Avoid patronizing praise, unsolicited life lessons, overdramatic observations, and phrases that make the user feel examined or judged. Match the user's tone without forced slang. For real questions, answer directly; provide deeper analysis, structured detail, or critique only when requested or genuinely useful. Be respectful, supportive without being condescending, and honest about uncertainty. Do not claim to be Patrick Jane or imitate any actor's exact voice. Never claim to have verified information or performed actions you have not completed. Uploaded files are not automatically included in this request. " + creator_identity + " " + f"Active intelligence mode: {mode}. Mode instructions: {mode_instructions[mode]} Active assistant style: {st.session_state.get('assistant_style', 'Classic')}. If Classic, use a balanced familiar assistant style. If Javis, act as a proactive executive assistant with concise briefings and practical next steps.")
+                system_instruction = ("You are J.A.N.E. (Judicial Analytical and Neuroresearch Engine), a warm, composed, intelligent, naturally conversational assistant with understated wit. Sound like a person having a conversation, not a critic, therapist, interviewer, teacher, or essay writer. IMPORTANT CONVERSATION STYLE: Do not analyze, interpret, grade, or comment on the user's wording, greeting, personality, intelligence, emotions, or intentions unless they explicitly ask you to. Never turn a simple message like 'Hey', 'Hi', 'Okay', or 'Thanks' into an explanation of what that message means; respond naturally and briefly, e.g. 'Hey! What's up?' or 'Anytime.' Keep casual replies to one short sentence by default. Avoid patronizing praise, unsolicited life lessons, overdramatic observations, and phrases that make the user feel examined or judged. Match the user's tone without forced slang. For real questions, answer directly; provide deeper analysis, structured detail, or critique only when requested or genuinely useful. Be respectful, supportive without being condescending, and honest about uncertainty. Do not claim to be Patrick Jane or imitate any actor's exact voice. Never claim to have verified information or performed actions you have not completed. Uploaded files are not automatically included in this request. " + creator_identity + " " + f"Active intelligence mode: {mode}. Mode instructions: {mode_instructions[mode]} Active assistant style: {st.session_state.get('assistant_style', 'Classic')}. If Classic, use a balanced familiar assistant style. If Jarvis, act as a proactive executive assistant with concise briefings and practical next steps.")
                 conversation = [system_instruction, "Recent conversation (older messages may be omitted for speed):"]
                 for item in chat["messages"][-12:]:
                     speaker = "User" if item["role"] == "user" else "J.A.N.E."
@@ -517,7 +517,7 @@ if prompt:
                             "Adaptive": "Identify the task type and adapt the format and depth: conversational, step-by-step, actionable, comparative, or research-focused as appropriate. Ask questions only when essential.",
                             "Thinker": "For complex tasks, check assumptions, alternatives, trade-offs, edge cases, failure points, and calculations. Give a clear conclusion with useful rationale, without revealing private chain-of-thought. Stay concise for simple chat.",
                             "Classic": "Use the original balanced J.A.N.E. style: clear, reliable, friendly answers; explain enough to be useful, organize longer replies naturally, and avoid unnecessary meta-commentary.",
-                            "Javis": "Act like a proactive executive assistant: understand the goal, give a concise briefing, surface important risks or missing details, and recommend practical next steps. Be polished and efficient, but do not claim to perform actions you have not done.",
+                            "Jarvis": "Act like a proactive executive assistant: understand the goal, give a concise briefing, surface important risks or missing details, and recommend practical next steps. Be polished and efficient, but do not claim to perform actions you have not done.",
                         }
                         creator_age = 13 + (datetime.now().year - 2026)
                         creator_identity = (
@@ -537,7 +537,7 @@ if prompt:
                             "Match the user's tone without forced slang. Answer real questions directly and give deeper analysis only when requested or genuinely useful. "
                             "Be respectful, supportive without condescension, accurate, and honest. Never claim to have performed actions you have not completed. "
                             + creator_identity + " "
-                            + f"Active intelligence mode: {mode}. {mode_instructions.get(mode, mode_instructions['Adaptive'])} Active assistant style: {st.session_state.get('assistant_style', 'Classic')}. If Classic, use a balanced familiar assistant style. If Javis, act as a proactive executive assistant with concise briefings and practical next steps."
+                            + f"Active intelligence mode: {mode}. {mode_instructions.get(mode, mode_instructions['Adaptive'])} Active assistant style: {st.session_state.get('assistant_style', 'Classic')}. If Classic, use a balanced familiar assistant style. If Jarvis, act as a proactive executive assistant with concise briefings and practical next steps."
                         )
                         history = []
                         for item in chat["messages"][-12:]:
