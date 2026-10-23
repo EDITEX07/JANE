@@ -2,8 +2,6 @@ import io
 import base64
 import json
 import uuid
-import urllib.request
-import urllib.error
 from pathlib import Path
 from datetime import datetime
 
@@ -23,7 +21,7 @@ if "chats" not in st.session_state:
     st.session_state.current_chat = first_id
 for key, default in {
     "profile_name": "Explorer", "api_enabled": True, "uploaded_files": {},
-    "pending_prompt": None, "intelligence_mode": "Adaptive",
+    "pending_prompt": None, "intelligence_mode": "Adaptive", "assistant_style": "Classic",
     "auth_user": None, "auth_token": None, "auth_mode": "signin", "voice_speed": 1.0,
 }.items():
     if key not in st.session_state:
@@ -52,11 +50,9 @@ def intelligence_dialog():
         "General": "Natural, friendly conversation and direct answers.",
         "Adaptive": "Automatically adapts its style to your intent. The default mode.",
         "Thinker": "Deeper analysis for challenging questions and decisions.",
-        "Classic": "The original J.A.N.E. experience: balanced, clear, helpful answers with a familiar assistant style.",
-        "Javis": "A proactive executive-assistant style: concise briefings, practical next steps, and organized support.",
     }
-    icons = {"General": "💬", "Adaptive": "🧠", "Thinker": "🔎", "Classic": "✨", "Javis": "🛰️"}
-    for name in ("General", "Adaptive", "Thinker", "Classic", "Javis"):
+    icons = {"General": "💬", "Adaptive": "🧠", "Thinker": "🔎"}
+    for name in ("General", "Adaptive", "Thinker"):
         with st.container(border=True):
             left, right = st.columns([5, 1])
             with left:
@@ -95,66 +91,27 @@ button.addEventListener("click",async()=>{{try{{await navigator.clipboard.writeT
 
 
 def render_speak_controls(content, key):
-    """Generate real ElevenLabs audio when the user presses Read aloud."""
+    """Read a reply aloud using the browser/device system voice only."""
     safe_key = "voice_" + "".join(ch if ch.isalnum() else "_" for ch in str(key))
-    audio_state_key = f"eleven_audio_{safe_key}"
-    error_state_key = f"eleven_error_{safe_key}"
-
+    payload = json.dumps(str(content or "").strip()[:4500], ensure_ascii=False).replace("</", "<\\/")
+    speed = float(st.session_state.get("voice_speed", 1.0))
     if st.button("🔊 Read aloud", key=f"speak_{safe_key}"):
-        api_key = str(st.secrets.get("ELEVENLABS_API_KEY", "")).strip()
-        voice_id = str(st.secrets.get("ELEVENLABS_VOICE_ID", "")).strip()
-        text_to_speak = str(content or "").strip()[:4500]
-        st.session_state.pop(audio_state_key, None)
-        st.session_state.pop(error_state_key, None)
-
-        if not api_key or not voice_id:
-            st.session_state[error_state_key] = (
-                "ElevenLabs is not configured. Add ELEVENLABS_API_KEY and "
-                "ELEVENLABS_VOICE_ID in Streamlit Secrets."
-            )
-        elif not text_to_speak:
-            st.session_state[error_state_key] = "There is no text to read aloud."
-        else:
-            payload = json.dumps({
-                "text": text_to_speak,
-                "model_id": "eleven_flash_v2_5",
-                "voice_settings": {"stability": 0.55, "similarity_boost": 0.75},
-            }).encode("utf-8")
-            request = urllib.request.Request(
-                f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
-                data=payload,
-                headers={
-                    "xi-api-key": api_key,
-                    "Content-Type": "application/json",
-                    "Accept": "audio/mpeg",
-                },
-                method="POST",
-            )
-            try:
-                with urllib.request.urlopen(request, timeout=45) as response:
-                    audio_bytes = response.read()
-                if audio_bytes:
-                    st.session_state[audio_state_key] = audio_bytes
-                else:
-                    st.session_state[error_state_key] = "ElevenLabs returned empty audio."
-            except urllib.error.HTTPError as exc:
-                # Do not expose credentials or raw response data to the user.
-                if exc.code in (401, 403):
-                    message = "ElevenLabs rejected the API key or voice access. Check the key and voice ID in Streamlit Secrets."
-                elif exc.code == 404:
-                    message = "ElevenLabs could not find that voice ID. Copy the ID from your ElevenLabs voice page."
-                elif exc.code == 429:
-                    message = "ElevenLabs usage limit reached. Check your plan and usage, then try again."
-                else:
-                    message = f"ElevenLabs request failed (HTTP {exc.code}). Check your ElevenLabs settings and try again."
-                st.session_state[error_state_key] = message
-            except (urllib.error.URLError, TimeoutError, OSError):
-                st.session_state[error_state_key] = "Couldn't connect to ElevenLabs. Check the connection and try again."
-
-    if st.session_state.get(audio_state_key):
-        st.audio(st.session_state[audio_state_key], format="audio/mpeg")
-    if st.session_state.get(error_state_key):
-        st.caption("⚠️ " + st.session_state[error_state_key])
+        components.html(f'''<script>
+const textToSpeak = {payload};
+try {{
+  if (!("speechSynthesis" in window)) {{
+    window.parent.postMessage({{type:"jane-system-voice-unavailable"}}, "*");
+  }} else {{
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(textToSpeak);
+    utterance.rate = {speed};
+    const voices = window.speechSynthesis.getVoices();
+    const preferred = voices.find(v => v.default) || voices.find(v => /^en(-|$)/i.test(v.lang));
+    if (preferred) utterance.voice = preferred;
+    window.speechSynthesis.speak(utterance);
+  }}
+}} catch (e) {{ console.error("J.A.N.E. system voice error", e); }}
+</script>''', height=0)
 
 # -------------------- STYLING --------------------
 st.markdown(r'''<style>
@@ -449,8 +406,17 @@ for message_index, message in enumerate(chat["messages"]):
 
 if st.session_state.uploaded_files:
     st.caption("📎 Attached in this session: " + ", ".join(st.session_state.uploaded_files.keys()))
-if st.button(f"◉ {st.session_state.intelligence_mode} ▾", key="open_intelligence_dialog", help="Choose how J.A.N.E. responds"):
-    intelligence_dialog()
+style_col, intelligence_col = st.columns([1, 1])
+with style_col:
+    st.session_state.assistant_style = st.selectbox(
+        "Assistant style", ["Classic", "Javis"],
+        index=["Classic", "Javis"].index(st.session_state.get("assistant_style", "Classic")),
+        key="assistant_style_selector",
+        help="Choose Classic or Javis assistant style. This is separate from intelligence depth.",
+    )
+with intelligence_col:
+    if st.button(f"◉ Intelligence: {st.session_state.intelligence_mode} ▾", key="open_intelligence_dialog", help="Choose intelligence depth"):
+        intelligence_dialog()
 image_mode = st.selectbox(
     "J.A.N.E. mode",
     ["Chat", "Generate image"],
@@ -514,7 +480,7 @@ if prompt:
                     f'also a {creator_age}-year-old developer." Use these ages as a calendar-year estimate, '
                     f'increasing them by one each new year from the 2026 baseline. Do not invent other creators.'
                 )
-                system_instruction = ("You are J.A.N.E. (Judicial Analytical and Neuroresearch Engine), a warm, composed, intelligent, naturally conversational assistant with understated wit. Sound like a person having a conversation, not a critic, therapist, interviewer, teacher, or essay writer. IMPORTANT CONVERSATION STYLE: Do not analyze, interpret, grade, or comment on the user's wording, greeting, personality, intelligence, emotions, or intentions unless they explicitly ask you to. Never turn a simple message like 'Hey', 'Hi', 'Okay', or 'Thanks' into an explanation of what that message means; respond naturally and briefly, e.g. 'Hey! What's up?' or 'Anytime.' Keep casual replies to one short sentence by default. Avoid patronizing praise, unsolicited life lessons, overdramatic observations, and phrases that make the user feel examined or judged. Match the user's tone without forced slang. For real questions, answer directly; provide deeper analysis, structured detail, or critique only when requested or genuinely useful. Be respectful, supportive without being condescending, and honest about uncertainty. Do not claim to be Patrick Jane or imitate any actor's exact voice. Never claim to have verified information or performed actions you have not completed. Uploaded files are not automatically included in this request. " + creator_identity + " " + f"Active intelligence mode: {mode}. Mode instructions: {mode_instructions[mode]}")
+                system_instruction = ("You are J.A.N.E. (Judicial Analytical and Neuroresearch Engine), a warm, composed, intelligent, naturally conversational assistant with understated wit. Sound like a person having a conversation, not a critic, therapist, interviewer, teacher, or essay writer. IMPORTANT CONVERSATION STYLE: Do not analyze, interpret, grade, or comment on the user's wording, greeting, personality, intelligence, emotions, or intentions unless they explicitly ask you to. Never turn a simple message like 'Hey', 'Hi', 'Okay', or 'Thanks' into an explanation of what that message means; respond naturally and briefly, e.g. 'Hey! What's up?' or 'Anytime.' Keep casual replies to one short sentence by default. Avoid patronizing praise, unsolicited life lessons, overdramatic observations, and phrases that make the user feel examined or judged. Match the user's tone without forced slang. For real questions, answer directly; provide deeper analysis, structured detail, or critique only when requested or genuinely useful. Be respectful, supportive without being condescending, and honest about uncertainty. Do not claim to be Patrick Jane or imitate any actor's exact voice. Never claim to have verified information or performed actions you have not completed. Uploaded files are not automatically included in this request. " + creator_identity + " " + f"Active intelligence mode: {mode}. Mode instructions: {mode_instructions[mode]} Active assistant style: {st.session_state.get('assistant_style', 'Classic')}. If Classic, use a balanced familiar assistant style. If Javis, act as a proactive executive assistant with concise briefings and practical next steps.")
                 conversation = [system_instruction, "Recent conversation (older messages may be omitted for speed):"]
                 for item in chat["messages"][-12:]:
                     speaker = "User" if item["role"] == "user" else "J.A.N.E."
@@ -571,7 +537,7 @@ if prompt:
                             "Match the user's tone without forced slang. Answer real questions directly and give deeper analysis only when requested or genuinely useful. "
                             "Be respectful, supportive without condescension, accurate, and honest. Never claim to have performed actions you have not completed. "
                             + creator_identity + " "
-                            + f"Active intelligence mode: {mode}. {mode_instructions.get(mode, mode_instructions['Adaptive'])}"
+                            + f"Active intelligence mode: {mode}. {mode_instructions.get(mode, mode_instructions['Adaptive'])} Active assistant style: {st.session_state.get('assistant_style', 'Classic')}. If Classic, use a balanced familiar assistant style. If Javis, act as a proactive executive assistant with concise briefings and practical next steps."
                         )
                         history = []
                         for item in chat["messages"][-12:]:
