@@ -874,6 +874,13 @@ image_mode = st.selectbox(
     help="Choose Generate image to create an actual image from your description.",
     label_visibility="collapsed",
 )
+# Limited beta: OpenAI-hosted web search is opt-in and does not affect normal chat.
+st.toggle(
+    "Web search (Beta)",
+    key="openai_web_search_beta",
+    value=False,
+    help="When enabled, J.A.N.E. can use OpenAI web search and include clickable source links. This may use additional API credits.",
+)
 submitted_prompt = st.chat_input("Describe an image…" if image_mode == "Generate image" else "Message J.A.N.E....", key="jane_chat_input")
 prompt = submitted_prompt.strip() if submitted_prompt else None
 if st.session_state.pending_prompt:
@@ -962,26 +969,61 @@ if prompt:
                     tools=[types.Tool(google_search=types.GoogleSearch())] if needs_web_search else None,
                 )
                 with st.spinner("J.A.N.E. is thinking..."):
-                    result = client.models.generate_content(
-                        model="gemini-3.5-flash-lite",
-                        contents="\n\n".join(conversation),
-                        config=request_config,
-                    )
-                answer = result.text or "I didn't receive a text response. Please try again."
-                # Append source links when Gemini returns Google Search grounding metadata.
-                grounding = getattr(result, "grounding_metadata", None)
-                grounding_chunks = getattr(grounding, "grounding_chunks", None) if grounding else None
-                source_lines = []
-                seen_source_urls = set()
-                for chunk in grounding_chunks or []:
-                    web_source = getattr(chunk, "web", None)
-                    source_url = getattr(web_source, "uri", None) if web_source else None
-                    source_title = getattr(web_source, "title", None) if web_source else None
-                    if source_url and source_url not in seen_source_urls:
-                        seen_source_urls.add(source_url)
-                        source_lines.append(f"- [{source_title or source_url}]({source_url})")
-                if source_lines:
-                    answer += "\n\n**Sources**\n" + "\n".join(source_lines)
+                    if st.session_state.get("openai_web_search_beta"):
+                        # Beta search path: OpenAI Responses API + hosted web_search.
+                        openai_key = str(st.secrets.get("OPENAI_API_KEY", "")).strip()
+                        if not openai_key:
+                            raise RuntimeError("OpenAI web search is not configured.")
+                        openai_client = OpenAI(api_key=openai_key)
+                        web_input = "\n\n".join(conversation)
+                        response = openai_client.responses.create(
+                            model=str(st.secrets.get("OPENAI_WEB_SEARCH_MODEL", "gpt-5.5")).strip(),
+                            tools=[{"type": "web_search", "search_context_size": "low"}],
+                            tool_choice="auto",
+                            instructions=system_instruction + " Use web search for relevant current or factual claims. Cite sources clearly. Keep the answer natural and concise unless detail is needed.",
+                            input=web_input,
+                        )
+                        answer = response.output_text or "I couldn't get a web-search response. Please try again."
+                        # Responses API citations are exposed as URL annotations; render them as clickable links.
+                        source_lines = []
+                        seen_source_urls = set()
+                        for output_item in (getattr(response, "output", None) or []):
+                            for content_item in (getattr(output_item, "content", None) or []):
+                                for annotation in (getattr(content_item, "annotations", None) or []):
+                                    if isinstance(annotation, dict):
+                                        ann_type = annotation.get("type")
+                                        source_url = annotation.get("url")
+                                        source_title = annotation.get("title")
+                                    else:
+                                        ann_type = getattr(annotation, "type", None)
+                                        source_url = getattr(annotation, "url", None)
+                                        source_title = getattr(annotation, "title", None)
+                                    if ann_type == "url_citation" and source_url and source_url not in seen_source_urls:
+                                        seen_source_urls.add(source_url)
+                                        source_lines.append(f"- [{source_title or source_url}]({source_url})")
+                        if source_lines:
+                            answer += "\n\n**Sources**\n" + "\n".join(source_lines)
+                    else:
+                        result = client.models.generate_content(
+                            model="gemini-3.5-flash-lite",
+                            contents="\n\n".join(conversation),
+                            config=request_config,
+                        )
+                        answer = result.text or "I didn't receive a text response. Please try again."
+                        # Append source links when Gemini returns Google Search grounding metadata.
+                        grounding = getattr(result, "grounding_metadata", None)
+                        grounding_chunks = getattr(grounding, "grounding_chunks", None) if grounding else None
+                        source_lines = []
+                        seen_source_urls = set()
+                        for chunk in grounding_chunks or []:
+                            web_source = getattr(chunk, "web", None)
+                            source_url = getattr(web_source, "uri", None) if web_source else None
+                            source_title = getattr(web_source, "title", None) if web_source else None
+                            if source_url and source_url not in seen_source_urls:
+                                seen_source_urls.add(source_url)
+                                source_lines.append(f"- [{source_title or source_url}]({source_url})")
+                        if source_lines:
+                            answer += "\n\n**Sources**\n" + "\n".join(source_lines)
         except Exception as error:
             error_text = str(error).lower()
             status_code = getattr(error, "status_code", None) or getattr(error, "code", None)
@@ -1057,36 +1099,8 @@ if prompt:
                 answer = "J.A.N.E. is temporarily unavailable. Please check the app configuration and try again."
             elif is_quota_error:
                 answer = "Image generation is temporarily unavailable. Please try again later."
+            elif st.session_state.get("openai_web_search_beta") and image_mode != "Generate image":
+                answer = "Web search (Beta) couldn't complete this request. Check that OPENAI_API_KEY is set and that your selected web-search model is available, then try again."
             else:
-                answer = f"I couldn't complete that request ({type(error).__name__}). Check Streamlit logs for the full error; your API key is not displayed here."
-    assistant_message = {"role": "assistant", "content": answer, "intelligence_mode": mode}
-    if generated_image_bytes:
-        assistant_message["image_bytes"] = generated_image_bytes
-        assistant_message["image_filename"] = "jane_generated_image.png"
-    chat["messages"].append(assistant_message)
-    # Persist full text conversation for signed-in users; Guest chat history stays session-only.
-    if st.session_state.get("auth_user"):
-        try:
-            save_chat_history(st.session_state.current_chat, chat)
-            st.session_state.chat_history_error = ""
-        except Exception as exc:
-            st.session_state.chat_history_error = str(exc)
-    # Signed-in users get automatic memory formation. Guest memory is deliberately disabled.
-    if st.session_state.get("auth_user") and not generated_image_bytes:
-        candidates = extract_memories(prompt, answer)
-        for candidate in candidates:
-            try:
-                save_memory(candidate, source="automatic")
-            except Exception:
-                # A memory write must never break the chat response.
-                pass
-    with st.chat_message("assistant", avatar="assistant"):
-        st.markdown(answer)
-        if generated_image_bytes:
-            st.image(generated_image_bytes, caption="Generated by J.A.N.E.", use_container_width=True)
-            st.download_button("⬇ Download image", data=generated_image_bytes, file_name="jane_generated_image.png", mime="image/png", key=f"download_latest_image_{len(chat['messages'])}")
-        else:
-            render_copy_answer(answer, f"latest-{len(chat['messages'])}")
-            render_speak_controls(answer, f"latest-{len(chat['messages'])}")
-
-st.markdown("<div class='jane-footer'>J.A.N.E. 0.91 · OCR · Gemini + OpenAI fallback · Guest data is temporary · Verify important decisions</div>", unsafe_allow_html=True)
+                answer = "I couldn't complete that request. Please try again; if it keeps happening, check the app configuration and logs."
+    assistant_message = {"ro
