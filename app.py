@@ -18,32 +18,6 @@ from openai import OpenAI
 
 st.set_page_config(page_title="J.A.N.E. | AI Workspace", page_icon="🔴", layout="wide", initial_sidebar_state="collapsed")
 
-# -------------------- SESSION STATE --------------------
-if "chats" not in st.session_state:
-    first_id = str(uuid.uuid4())
-    st.session_state.chats = {first_id: {"title": "New conversation", "messages": [], "created": datetime.now().strftime("%d %b %Y, %H:%M")}}
-    st.session_state.current_chat = first_id
-for key, default in {
-    "profile_name": "Explorer", "api_enabled": True, "uploaded_files": {},
-    "pending_prompt": None, "intelligence_mode": "Adaptive", "assistant_style": "Classic",
-    "auth_user": None, "auth_token": None, "auth_refresh_token": None, "auth_mode": "signin", "voice_speed": 1.0, "ui_theme": "Red",
-}.items():
-    if key not in st.session_state:
-        st.session_state[key] = default
-
-# Normalize legacy selector values so an older saved "Javis" value cannot crash the app.
-if st.session_state.get("assistant_style") in ("Javis", "Jarvis", "JARVIS", "jarvis"):
-    st.session_state.assistant_style = "Jarvis"
-elif st.session_state.get("assistant_style") != "Classic":
-    st.session_state.assistant_style = "Classic"
-if st.session_state.get("ui_theme") not in {"Red", "Blue", "Green", "Pink", "Purple", "White"}:
-    st.session_state.ui_theme = "Red"
-
-# Live AI requests are always enabled; there is no user-facing on/off switch.
-st.session_state.api_enabled = True
-
-
-
 # -------------------- FINANCIAL PRECISION ENGINE --------------------
 # Decimal-based deterministic calculations. Monetary outputs are rounded to paise;
 # intermediate values retain high precision. These tools do not replace professional advice.
@@ -135,6 +109,191 @@ def render_financial_precision_tool():
                 st.caption("Estimate only: actual lender schedules may differ due to payment dates, daily interest, fees, insurance, taxes, and lender-specific rounding. Confirm against the written loan offer.")
             except (ValueError, InvalidOperation, ArithmeticError) as exc:
                 st.error(f"Could not calculate these inputs: {exc}")
+
+def make_chat():
+    chat_id = str(uuid.uuid4())
+    st.session_state.chats[chat_id] = {"title": "New conversation", "messages": [], "created": datetime.now().strftime("%d %b %Y, %H:%M")}
+    st.session_state.current_chat = chat_id
+
+
+def active_chat():
+    if st.session_state.current_chat not in st.session_state.chats:
+        st.session_state.current_chat = next(iter(st.session_state.chats))
+    return st.session_state.chats[st.session_state.current_chat]
+
+
+def suggest_chat_title(prompt):
+    """Create a useful, human-readable title from the first substantive message."""
+    import re
+
+    text = re.sub(r"\s+", " ", str(prompt or "")).strip(" \t\r\n.,!?;:")
+    if not text:
+        return None
+
+    # Greetings and conversational openers should never become chat titles.
+    normalized = text.lower()
+    greeting = re.match(
+        r"^(hi|hello|hey|heya|yo|sup|good morning|good afternoon|good evening|how are you|what's up|whats up|thank you|thanks)(\b|[!.?, ]|$)",
+        normalized,
+    )
+    if greeting:
+        return None
+
+    # Make common study/learning conversations feel like purposeful sessions.
+    study_patterns = [
+        (r"^(?:i am |i'm |im )?(?:studying|study|learning|learn|revising|revision of|revise)\s+(?:about\s+|for\s+)?(.+)$", "Studying"),
+        (r"^(?:explain|teach me|help me understand)\s+(.+)$", "Understanding"),
+        (r"^(?:solve|help me solve)\s+(.+)$", "Solving"),
+        (r"^(?:research|researching)\s+(.+)$", "Researching"),
+        (r"^(?:plan|planning)\s+(.+)$", "Planning"),
+        (r"^(?:build|building|create|creating|develop|developing)\s+(.+)$", "Building"),
+    ]
+    for pattern, prefix in study_patterns:
+        match = re.match(pattern, text, flags=re.IGNORECASE)
+        if match:
+            topic = match.group(1).strip(" .!?;:")
+            if topic:
+                title = f"{prefix} {topic}"
+                return title[:56].rstrip(" ,.-")
+
+    # Use the meaningful prompt itself, with enough room to identify its topic.
+    text = re.sub(r"^(please\s+)?(can you|could you|would you|i want you to)\s+", "", text, flags=re.IGNORECASE)
+    return text[:56].rstrip(" ,.-") or None
+
+
+def update_chat_title(chat, prompt):
+    """Ignore greetings; allow the first meaningful message to name the chat."""
+    title = str(chat.get("title", "New conversation")).strip()
+    generic_titles = {"", "new conversation", "hi", "hello", "hey", "yo", "sup", "good morning", "good afternoon", "good evening"}
+    # Also repair older sessions that were titled from a greeting.
+    candidate = suggest_chat_title(prompt)
+    if not candidate:
+        return
+    if title.lower() in generic_titles:
+        chat["title"] = candidate
+
+
+@st.dialog("Choose intelligence")
+def intelligence_dialog():
+    st.caption("How should J.A.N.E. approach your prompts?")
+    descriptions = {
+        "General": "Natural, friendly conversation and direct answers.",
+        "Adaptive": "Automatically adapts its style to your intent. The default mode.",
+        "Thinker": "Deeper analysis for challenging questions and decisions.",
+    }
+    icons = {"General": "💬", "Adaptive": "🧠", "Thinker": "🔎"}
+    for name in ("General", "Adaptive", "Thinker"):
+        with st.container(border=True):
+            left, right = st.columns([5, 1])
+            with left:
+                st.markdown(f"**{icons[name]} {name}**")
+                st.caption(descriptions[name])
+            with right:
+                if st.session_state.intelligence_mode == name:
+                    st.markdown("**✓ Active**")
+                elif st.button("Select", key=f"mode_select_{name}", use_container_width=True):
+                    st.session_state.intelligence_mode = name
+                    st.rerun()
+    st.caption("Your choice stays active until you change it.")
+
+
+
+@st.dialog("Choose assistant style")
+def assistant_style_dialog():
+    st.caption("Choose how J.A.N.E. speaks to you.")
+    options = {
+        "Classic": ("💬", "Natural, friendly, everyday J.A.N.E."),
+        "Jarvis": ("🛡️", "Formal, disciplined, mission-focused personal assistant."),
+    }
+    for name in ("Classic", "Jarvis"):
+        icon, description = options[name]
+        with st.container(border=True):
+            left, right = st.columns([5, 1])
+            with left:
+                st.markdown(f"**{icon} {name}**")
+                st.caption(description)
+            with right:
+                if st.session_state.assistant_style == name:
+                    st.markdown("**✓ Active**")
+                elif st.button("Select", key=f"style_select_{name}", use_container_width=True):
+                    st.session_state.assistant_style = name
+                    st.rerun()
+    st.caption("This changes J.A.N.E.'s response style, not its intelligence mode.")
+
+def render_message_content(message):
+    content = message.get("content", "")
+    if message.get("role") == "user":
+        lines = content.splitlines() or [content]
+        if len(lines) > 7:
+            st.markdown("\n".join(lines[:7]).rstrip() + "…")
+            with st.expander("See more"):
+                st.markdown(content)
+        else:
+            st.markdown(content)
+    else:
+        st.markdown(content)
+
+
+def render_copy_answer(content, key):
+    payload = json.dumps(content, ensure_ascii=False).replace("</", "<\\/")
+    components.html(f'''<div style="background:transparent;padding:2px 0 6px"><button id="copy-{key}" style="background:#171217;color:#e9e5eb;border:1px solid #49303b;border-radius:8px;padding:6px 11px;font-size:12px;cursor:pointer">⧉ Copy answer</button><span id="status-{key}" style="margin-left:9px;color:#aaa5b2;font:12px Arial,sans-serif"></span></div>
+<script>
+const answer={payload};const button=document.getElementById("copy-{key}");const status=document.getElementById("status-{key}");
+button.addEventListener("click",async()=>{{try{{await navigator.clipboard.writeText(answer);status.textContent="Copied!";}}catch(err){{const area=document.createElement("textarea");area.value=answer;document.body.appendChild(area);area.select();try{{document.execCommand("copy");status.textContent="Copied!";}}catch(e){{status.textContent="Copy unavailable";}}area.remove();}}}});
+</script>''', height=42, scrolling=False)
+
+
+def render_speak_controls(content, key):
+    """Read replies with browser/device speech synthesis, without a TTS API call."""
+    safe_key = "voice_" + "".join(ch if ch.isalnum() else "_" for ch in str(key))
+    text_payload = json.dumps(str(content or "").strip()[:12000], ensure_ascii=False).replace("</", "<\\/")
+    speed = float(st.session_state.get("voice_speed", 1.0))
+    components.html(f'''<div style="font-family:Arial,sans-serif;display:flex;gap:8px;align-items:center;background:transparent">
+<button id="speak-{safe_key}" style="background:#a10f2b;color:white;border:0;border-radius:18px;padding:8px 13px;cursor:pointer">🔊 Read aloud</button>
+<button id="stop-{safe_key}" style="background:#171217;color:#eee;border:1px solid #49303b;border-radius:18px;padding:8px 13px;cursor:pointer">■ Stop</button>
+</div>
+<script>
+(()=>{{
+ const text={text_payload};
+ const rate={speed};
+ const speak=document.getElementById("speak-{safe_key}");
+ const stop=document.getElementById("stop-{safe_key}");
+ speak.addEventListener("click",()=>{{
+   if(!text)return;
+   if(!("speechSynthesis" in window)||!("SpeechSynthesisUtterance" in window))return;
+   window.speechSynthesis.cancel();
+   const utterance=new SpeechSynthesisUtterance(text);
+   utterance.rate=Math.max(0.5,Math.min(3,rate));
+   window.speechSynthesis.speak(utterance);
+ }});
+ stop.addEventListener("click",()=>{{if("speechSynthesis" in window)window.speechSynthesis.cancel();}});
+}})();
+</script>''', height=52, scrolling=False)
+
+# -------------------- SESSION STATE --------------------
+if "chats" not in st.session_state:
+    first_id = str(uuid.uuid4())
+    st.session_state.chats = {first_id: {"title": "New conversation", "messages": [], "created": datetime.now().strftime("%d %b %Y, %H:%M")}}
+    st.session_state.current_chat = first_id
+for key, default in {
+    "profile_name": "Explorer", "api_enabled": True, "uploaded_files": {},
+    "pending_prompt": None, "intelligence_mode": "Adaptive", "assistant_style": "Classic",
+    "auth_user": None, "auth_token": None, "auth_refresh_token": None, "auth_mode": "signin", "voice_speed": 1.0, "ui_theme": "Red",
+}.items():
+    if key not in st.session_state:
+        st.session_state[key] = default
+
+# Normalize legacy selector values so an older saved "Javis" value cannot crash the app.
+if st.session_state.get("assistant_style") in ("Javis", "Jarvis", "JARVIS", "jarvis"):
+    st.session_state.assistant_style = "Jarvis"
+elif st.session_state.get("assistant_style") != "Classic":
+    st.session_state.assistant_style = "Classic"
+if st.session_state.get("ui_theme") not in {"Red", "Blue", "Green", "Pink", "Purple", "White"}:
+    st.session_state.ui_theme = "Red"
+
+# Live AI requests are always enabled; there is no user-facing on/off switch.
+st.session_state.api_enabled = True
+
 
 def make_chat():
     chat_id = str(uuid.uuid4())
@@ -909,6 +1068,7 @@ with st.sidebar:
         active_chat()["messages"] = []; active_chat()["title"] = "New conversation"; st.rerun()
 
 # -------------------- MAIN WORKSPACE --------------------
+render_financial_precision_tool()
 logo_path = Path(__file__).with_name("jane_logo_transparent_full.png")
 if logo_path.exists():
     logo_data = base64.b64encode(logo_path.read_bytes()).decode("ascii")
@@ -1028,9 +1188,9 @@ if prompt:
                     answer = "The image model returned no image. Check model availability and API access in your Google AI Studio project, then try again."
             else:
                 mode_instructions = {
-                    "General": "Answer naturally and accurately with enough detail to be genuinely useful. For explanations, advice, comparisons, plans, or multi-part questions, use a clear heading and readable bullet points or numbered steps when they improve clarity. Include a short opening answer, key details, and a practical conclusion. Do not make substantive answers so short that important context or steps are missing. Keep greetings and simple confirmations conversational and brief.",
-                    "Adaptive": "Silently infer what the user needs and respond naturally, accurately, and with a balanced amount of detail. For substantive questions, normally start with a direct answer, then use concise headings and bullet points or numbered steps to organize the explanation. Cover the important points, examples, caveats, and next steps that the request calls for; do not give a one-line answer when a useful explanation is needed. Match the depth to the task without announcing or labeling your internal approach. Keep greetings and simple confirmations brief. Ask a clarifying question only when essential.",
-                    "Thinker": "For complex questions, examine assumptions, alternatives, trade-offs, edge cases, likely failure points, and calculation consistency before answering. Present the result in a ChatGPT-like structure: clear headings, concise bullets or numbered steps, relevant examples, assumptions/uncertainties, and a practical conclusion. Give enough detail to fully answer the request without padding. Separate established facts from inference and never reveal private chain-of-thought. Keep simple conversation brief.",
+                    "General": "Use natural, direct conversation. Keep simple answers short, avoid unnecessary headings and analysis, and expand only when asked or genuinely needed.",
+                    "Adaptive": "Use the full conversation context to infer what the user means, including short follow-ups, pronouns, references such as 'that' or 'it', and references to tools or ideas mentioned earlier. Do not ask the user to restate details already present in this chat. Give brief answers to simple questions and deeper, structured answers when the topic is complex or the user is exploring a serious decision. Keep answers relevant to the current topic and ask for clarification only when multiple interpretations remain genuinely plausible.",
+                    "Thinker": "Use the relevant conversation history, not only the latest message. Resolve follow-up questions from the established topic before asking for clarification. For complex or research questions, provide a formal, thorough answer with dates, named researchers, evidence, sources/citations when available, competing explanations, limitations, and uncertainty. Never invent studies, dates, researchers, or citations. Explain conclusions and key reasoning, but never reveal private chain-of-thought. Keep simple answers appropriately short.",
                 }
                 creator_age = 13 + (datetime.now().year - 2026)
                 creator_identity = (
@@ -1041,81 +1201,4 @@ if prompt:
                     "If explicitly asked which underlying model or provider powers the current response, answer honestly "
                     "that the app may use configured AI services; distinguish the model provider from J.A.N.E.'s project creator."
                 )
-                system_instruction = ("You are J.A.N.E. (Judicious, Analytical, and Neuroresearch Engine), a warm, composed, intelligent, naturally conversational assistant with understated wit. Sound like a person having a conversation, not a critic, therapist, interviewer, teacher, or essay writer. IMPORTANT CONVERSATION STYLE: Never announce or label the task type, response style, tone, or internal approach (for example, do not write labels such as “Task type,” “Conversational response style,” or “Natural, brief and composed”). Apply style guidance silently. Do not analyze, interpret, grade, or comment on the user's wording, greeting, personality, intelligence, emotions, or intentions unless they explicitly ask you to. Never turn a simple message like 'Hey', 'Hi', 'Okay', or 'Thanks' into an explanation of what that message means; respond naturally, e.g. 'Hey! What's up?' or 'Anytime.' For substantive questions, give a complete, precise answer rather than an overly short reply. Start with the direct answer, then use clear headings and bullet points or numbered steps when they help the reader follow the response. Include the important reasoning, examples, assumptions, caveats, and practical next steps the question calls for, without filler or repetition. For multi-part questions, answer each part clearly. Keep greetings and simple confirmations brief. Avoid patronizing praise, unsolicited life lessons, overdramatic observations, and phrases that make the user feel examined or judged. Match the user's tone without forced slang. Be respectful, supportive without being condescending, and honest about uncertainty. Do not claim to be Patrick Jane or imitate any actor's exact voice. Never claim to have verified information or performed actions you have not completed. FINANCIAL ACCURACY: For money, interest, EMI, percentages, taxes, budgets, or totals, never guess arithmetic or invent missing inputs. State assumptions, distinguish flat from reducing-balance interest, annual from monthly rates, and exact values from rounded currency. If inputs are insufficient, ask for the missing values. For calculations, show formula and units and sanity-check the result; do not claim independent verification unless a deterministic calculation was actually run. Uploaded files are not automatically included in this request. SPEED: Give the shortest complete answer that satisfies the request. For greetings, confirmations, and simple factual questions, answer in 1-3 sentences. Do not browse or add sources unless the user asks for current information, research, verification, or web search. Do not repeat the conversation or explain your process. " + creator_identity + " " + f"Active intelligence mode: {mode}. Mode instructions: {mode_instructions[mode]} " + ("ASSISTANT STYLE: Jarvis. Address the user as Sir when natural. Be disciplined, composed, concise, proactive, and mission-oriented; use polished formal language and brief status-style phrasing when useful. Do not overdo military jargon, bark orders, or sacrifice warmth, accuracy, or safety. Never claim systems/actions are running unless actually true." if st.session_state.assistant_style == "Jarvis" else "ASSISTANT STYLE: Classic. Use natural, friendly, conversational language."))
-                conversation = [system_instruction, "Conversation so far:"]
-                # Send only recent context to the model for faster replies; full chat remains saved in session/Firestore.
-                for item in chat["messages"][-12:]:
-                    speaker = "User" if item["role"] == "user" else "J.A.N.E."
-                    conversation.append(f"{speaker}: {item['content']}")
-                conversation.append("J.A.N.E.:")
-                # Use web grounding only when the user clearly requests fresh/current research.
-                latest_user_text = str(prompt).lower()
-                web_triggers = ("search the web", "look up", "latest", "current", "today", "right now", "recent news", "verify online", "research online", "sources", "cite sources", "price today", "weather")
-                needs_web_search = any(term in latest_user_text for term in web_triggers)
-                request_config = types.GenerateContentConfig(
-                    tools=[types.Tool(google_search=types.GoogleSearch())] if needs_web_search else None,
-                )
-                with st.spinner("J.A.N.E. is thinking..."):
-                    result = client.models.generate_content(
-                        model="gemini-3.5-flash-lite",
-                        contents="\n\n".join(conversation),
-                        config=request_config,
-                    )
-                answer = result.text or "I didn't receive a text response. Please try again."
-                # Append source links when Gemini returns Google Search grounding metadata.
-                grounding = getattr(result, "grounding_metadata", None)
-                grounding_chunks = getattr(grounding, "grounding_chunks", None) if grounding else None
-                source_lines = []
-                seen_source_urls = set()
-                for chunk in grounding_chunks or []:
-                    web_source = getattr(chunk, "web", None)
-                    source_url = getattr(web_source, "uri", None) if web_source else None
-                    source_title = getattr(web_source, "title", None) if web_source else None
-                    if source_url and source_url not in seen_source_urls:
-                        seen_source_urls.add(source_url)
-                        source_lines.append(f"- [{source_title or source_url}]({source_url})")
-                if source_lines:
-                    answer += "\n\n**Sources**\n" + "\n".join(source_lines)
-        except Exception as error:
-            error_text = str(error).lower()
-            status_code = getattr(error, "status_code", None) or getattr(error, "code", None)
-            is_quota_error = (
-                status_code == 429
-                or any(term in error_text for term in (
-                    "resource_exhausted", "quota exceeded", "rate limit",
-                    "too many requests", "429", "billing limit",
-                ))
-            )
-            is_key_error = any(term in error_text for term in (
-                "gemini_api_key", "secrets", "api key", "unauthorized", "401", "403"
-            ))
-
-            # Only fall back for TEXT chat quota/rate-limit failures.
-            # Image generation is left on Gemini because OpenAI image generation
-            # requires a separate image API flow and should not be silently substituted.
-            if is_quota_error and image_mode != "Generate image":
-                try:
-                    openai_key = st.secrets.get("OPENAI_API_KEY", "")
-                    if not openai_key:
-                        answer = (
-                            "J.A.N.E. is temporarily unable to answer. Please try again in a little while."
-                        )
-                    else:
-                        mode_instructions = {
-                            "General": "Answer naturally and accurately with enough detail to be useful. For explanations, advice, comparisons, plans, or multi-part questions, use clear headings and readable bullet points or numbered steps when helpful. Do not omit important context just to be short. Keep greetings and simple confirmations brief.",
-                            "Adaptive": "Silently infer what the user needs and respond naturally, accurately, and with balanced detail. For substantive questions, start with a direct answer, then use concise headings and bullets or numbered steps when they improve clarity. Include important points, examples, caveats, and next steps as needed; avoid one-line answers when a real explanation is called for. Never label your internal approach. Keep greetings brief and ask questions only when essential.",
-                            "Thinker": "For complex tasks, check assumptions, alternatives, trade-offs, edge cases, failure points, and calculations. Organize the answer with clear headings, bullets or numbered steps, relevant examples, assumptions/uncertainties, and a practical conclusion. Give enough detail to answer fully without padding. Never reveal private chain-of-thought; keep simple chat brief.",
-                        }
-                        creator_age = 13 + (datetime.now().year - 2026)
-                        creator_identity = (
-                            "Identity rules: You are J.A.N.E. (Judicial Analytical and Neuroresearch Engine), "
-                            "the user's assistant project. If asked who created J.A.N.E., identify its project creator "
-                            "as Vihaan Shirale (EDITEX07), with Tanish Khandare as development partner. "
-                            "Do not say J.A.N.E. was created by ChatGPT or by Gemini. Do not invent ages or biographical details. "
-                            "If explicitly asked which underlying model or provider powers the current response, answer honestly "
-                            "that the app may use configured AI services; distinguish the model provider from J.A.N.E.'s project creator."
-                        )
-                        system_instruction = (
-                            "You are J.A.N.E. (Judicious, Analytical, and Neuroresearch Engine), "
-                            "a warm, composed, intelligent, naturally conversational assistant with understated wit. "
- 
+                system_instruction = ("You are J.A.N.E. (Judicial Analytical and Neuroresearch Engine), a warm, composed, intelligent, naturally conversational assistant with understated wit. Sound like a person having a conversation, not a critic, therapist, interviewer, teacher, or essay writer. IMPORTANT CONVERSATION STYLE: Never announce or label the task type, response style, tone, or internal approach (for example, do not write labels such as “Task type,” “Conversational response style,” or “Natural, brief and composed”). Apply style guidance silently. Do not analyze, interpret, grade, or comment on the user's wording, greeting, personality, intelligence, emotions, or intentions unless they explicitly ask you to. Never turn a simple message like 'Hey', 'Hi', 'Okay', or 'Thanks' into an explanation of what that message means; respond naturally and briefly, e.g. 'Hey! What's up?' or 'Anytime.' Keep casual replies to one short sentence by default. Avoid patronizing praise, unsolicited life lessons, overdramatic observations, and phrases that make the user feel examined or judged. Match the user's tone without forced slang. For substantive questions, start with the direct answer, then use clear headings and bullet points or numbered steps when helpful. Give enough detail to answer the question fully, including important examples, assumptions, caveats, and practical next steps; avoid one-line answers when explanation is needed. Answer every part of multi-part requests. Keep greetings and simple confirmations brief. Be respectful, supportive without being condescending, and honest about uncertainty. Do not claim to be Patrick Jane or imitate any actor's exact voice. Never claim to have verified information or performed actions you have not completed. Uploaded files are not automatically included in this request. SPEED: Give the shortest complete answer that satisfies the request. For greetings, confirmations, and simple factual questions, answer in 1-3 sentences. Do not browse or add sources unless the user asks for current informa
